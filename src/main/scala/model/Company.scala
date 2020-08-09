@@ -6,7 +6,10 @@ import doobie.Meta
 import io.circe.Encoder
 import model.Company.CompanyId
 
-final case class Company(companyId: CompanyId)
+final case class Company(
+                          companyId: CompanyId,
+                          name: String
+                        )
 
 object Company {
 
