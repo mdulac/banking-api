@@ -28,3 +28,5 @@ Users : `f0ef3449-f5f8-4e07-82ee-683247e11dc3`, `76c4785e-da22-4cfe-8495-27ae4d6
 Wallets : `c7f3c868-ea95-4072-a507-1543799d26fe`, `10f6d391-11cd-463b-8a51-c95bc4580d2e`, `130081e3-3677-46b9-b7eb-518a3e1f8f19`
 
 Cards : `48a9cf36-32b2-4b79-8964-020ce6f234f9`, `5244839a-0272-4786-bb29-6423623578b5`
+
+__Do not forget to add headers User-Id and Company-Id in your http requests__
