@@ -1,0 +1,390 @@
+{
+	"info": {
+		"_postman_id": "f948b86b-e925-4851-a21d-18f4014219c4",
+		"name": "banking-api",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "list companies",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/companies",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"companies"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "list users",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/wallets",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"wallets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create wallet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"balance\": 400,\n    \"currency\": \"USD\",\n    \"isMaster\": true\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/wallets",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"wallets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "list wallets",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/wallets",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"wallets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "create card",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"walletId\": \"c7f3c868-ea95-4072-a507-1543799d26fe\",\n    \"currency\": \"EUR\",\n    \"number\": \"1111111111111111\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/cards",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"cards"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "list cards",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "User-Id",
+						"type": "text",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3"
+					},
+					{
+						"key": "Company-Id",
+						"type": "text",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/cards",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"cards"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "load card from wallet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"amount\": 1\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/cards/48a9cf36-32b2-4b79-8964-020ce6f234f9/load",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"cards",
+						"48a9cf36-32b2-4b79-8964-020ce6f234f9",
+						"load"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "transfer between wallets",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"amount\": 10,\n    \"source\": \"10f6d391-11cd-463b-8a51-c95bc4580d2e\",\n    \"target\": \"130081e3-3677-46b9-b7eb-518a3e1f8f19\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "localhost:8080/transfer",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"transfer"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "block card",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3",
+						"type": "text"
+					},
+					{
+						"key": "Company-Id",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "localhost:8080/cards/48a9cf36-32b2-4b79-8964-020ce6f234f9/block",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"cards",
+						"48a9cf36-32b2-4b79-8964-020ce6f234f9",
+						"block"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "unblock card",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "User-Id",
+						"type": "text",
+						"value": "f0ef3449-f5f8-4e07-82ee-683247e11dc3"
+					},
+					{
+						"key": "Company-Id",
+						"type": "text",
+						"value": "9d6493b3-b550-49a5-9a55-a5b0568225fc"
+					}
+				],
+				"url": {
+					"raw": "localhost:8080/cards/48a9cf36-32b2-4b79-8964-020ce6f234f9/unblock",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"cards",
+						"48a9cf36-32b2-4b79-8964-020ce6f234f9",
+						"unblock"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}
