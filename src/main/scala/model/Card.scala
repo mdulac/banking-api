@@ -4,6 +4,7 @@ import java.time.LocalDate
 import java.util.UUID
 
 import doobie.Meta
+import io.circe.Encoder
 import model.Card.CardId
 import model.User.UserId
 import model.Wallet.WalletId
@@ -28,6 +29,7 @@ object Card {
 
   object CardId {
     implicit val cardIdMeta: Meta[CardId] = Meta[UUID].timap(CardId.apply)(_.value)
+    implicit val encoder: Encoder[CardId] = Encoder.encodeString.contramap[CardId](_.toString)
   }
 
 }

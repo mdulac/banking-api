@@ -2,8 +2,9 @@ package model.commands
 
 import cats.effect.IO
 import io.circe.generic.auto._
+import model.Card
 import model.Wallet.WalletId
-import model.{Card, Currency}
+import model.Wallet.WalletId.decoder
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 

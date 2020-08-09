@@ -20,6 +20,12 @@ import org.http4s.{HttpRoutes, MediaType, Request}
 import repository.AuthenticationStatus.{Authenticated, NotAllowed}
 import repository.BankingRepository
 
+import model.Wallet.WalletId.encoder
+import model.Company.CompanyId.encoder
+import model.Card.CardId.encoder
+import model.User.UserId.encoder
+import model.Transfer.TransferId.encoder
+
 import scala.collection.immutable.Vector.empty
 import scala.util.Random
 

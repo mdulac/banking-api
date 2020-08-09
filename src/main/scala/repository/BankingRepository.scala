@@ -14,8 +14,8 @@ import fs2.Stream
 import model.Card.CardId
 import model.Company.CompanyId
 import model.Currency.{EUR, GBP, USD}
-import model.Transfer.TransferEntity.WalletEntity
-import model.Transfer.TransferId
+import model.Transfer.TransferEntity.{CardEntity, WalletEntity}
+import model.Transfer.{TransferEntity, TransferId}
 import model.User.UserId
 import model.Wallet.WalletId
 import model._
@@ -36,7 +36,7 @@ class BankingRepository(transactor: Transactor[IO]) {
 
   private val SpendeskFee = 2.9
 
-  private val currencyExchange: Map[(Currency, Currency), BigDecimal] = Map(
+  private val CurrencyExchange: Map[(Currency, Currency), BigDecimal] = Map(
     (EUR, USD) -> 1.18,
     (EUR, GBP) -> 0.90,
     (USD, EUR) -> 0.85,
@@ -105,7 +105,7 @@ class BankingRepository(transactor: Transactor[IO]) {
 
   }
 
-  private def queryCard(cardId: String) = sql"SELECT ID, USER_ID, WALLET_ID, BALANCE, IS_BLOCKED FROM CARDS WHERE ID = $cardId".query[(CardId, UserId, WalletId, BigDecimal, Boolean)].option
+  private def queryCard(cardId: String) = sql"SELECT ID, USER_ID, WALLET_ID, BALANCE, CURRENCY, IS_BLOCKED FROM CARDS WHERE ID = $cardId".query[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)].option
 
   private def queryWalletBalance(walletId: WalletId) = sql"SELECT BALANCE FROM WALLETS WHERE ID = $walletId".query[BigDecimal].unique
 
@@ -113,12 +113,15 @@ class BankingRepository(transactor: Transactor[IO]) {
 
   private def setCardBalance(cardId: CardId)(balance: BigDecimal) = sql"UPDATE CARDS SET BALANCE = $balance WHERE ID = $cardId".update.run
 
+  private def setTransfer(id: TransferId, timestamp: LocalDateTime, amount: BigDecimal, sourceCurrency: Currency, targetCurrency: Currency, fees: Option[BigDecimal], source: TransferEntity, target: TransferEntity) =
+    sql"INSERT INTO TRANSFERS(ID, TIMESTAMP, AMOUNT, ORIGIN_CURRENCY, TARGET_CURRENCY, CONVERSION_FEE, ORIGIN_ENTITY_ID, ORIGIN_ENTITY_TYPE, TARGET_ENTITY_ID, TARGET_ENTITY_TYPE) VALUES ( $id, $timestamp, $amount, $sourceCurrency, $targetCurrency, $fees, ${source.id}, ${source.entity}, ${target.id}, ${target.entity} )".update.run
+
   def loadCard(userId: UserId, cardId: String, amount: BigDecimal): IO[LoadCardCommandValidation] = {
     queryCard(cardId).flatMap {
       case None => LoadCardCommandValidation.cardUnknown(cardId).pure[ConnectionIO]
-      case Some((cardId, ownerId, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
-      case Some((cardId, _, _, _, true)) => LoadCardCommandValidation.cardBlocked(cardId).pure[ConnectionIO]
-      case Some((cardId, _, walletId, cardBalance, false)) =>
+      case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
+      case Some((cardId, _, _, _, _, true)) => LoadCardCommandValidation.cardBlocked(cardId).pure[ConnectionIO]
+      case Some((cardId, _, walletId, cardBalance, currency, false)) =>
         queryWalletBalance(walletId).flatMap {
           case walletBalance if walletBalance < amount => LoadCardCommandValidation.walletBalanceTooLow(walletId, walletBalance).pure[ConnectionIO]
           case walletBalance =>
@@ -126,6 +129,7 @@ class BankingRepository(transactor: Transactor[IO]) {
             val newCardBalance = cardBalance + amount
             setWalletBalance(walletId)(newWalletBalance) *>
               setCardBalance(cardId)(newCardBalance) *>
+              setTransfer(TransferId(UUID.randomUUID()), LocalDateTime.now(), amount, currency, currency, Option.empty, WalletEntity(walletId), CardEntity(cardId)) *>
               LoadCardCommandValidation.cardCredited(cardId, newCardBalance).pure[ConnectionIO]
         }
     }
@@ -136,11 +140,12 @@ class BankingRepository(transactor: Transactor[IO]) {
 
     queryCard(cardId).flatMap {
       case None => BlockCardCommandValidation.cardUnknown(cardId).pure[ConnectionIO]
-      case Some((cardId, ownerId, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
-      case Some((cardId, _, _, _, true)) => BlockCardCommandValidation.cardAlreadyBlocked(cardId).pure[ConnectionIO]
-      case Some((cardId, _, walletId, cardBalance, false)) => blockCard *>
+      case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
+      case Some((cardId, _, _, _, _, true)) => BlockCardCommandValidation.cardAlreadyBlocked(cardId).pure[ConnectionIO]
+      case Some((cardId, _, walletId, cardBalance, currency, false)) => blockCard *>
         setCardBalance(cardId)(0) *>
         queryWalletBalance(walletId).flatMap(walletBalance => setWalletBalance(walletId)(walletBalance + cardBalance)) *>
+        setTransfer(TransferId(UUID.randomUUID()), LocalDateTime.now(), cardBalance, currency, currency, Option.empty, CardEntity(cardId), WalletEntity(walletId)) *>
         BlockCardCommandValidation.cardBlocked(cardId).pure[ConnectionIO]
     }
   }.transact(transactor)
@@ -163,9 +168,6 @@ class BankingRepository(transactor: Transactor[IO]) {
 
     def queryMasterWallet(currency: Currency) = sql"SELECT W.ID, W.BALANCE FROM WALLETS W JOIN COMPANIES C on C.ID = W.COMPANY_ID WHERE CURRENCY = $currency AND C.NAME = 'Spendesk'".query[(WalletId, BigDecimal)].unique
 
-    def setTransfer(id: TransferId, timestamp: LocalDateTime, amount: BigDecimal, sourceCurrency: Currency, targetCurrency: Currency, fees: Option[BigDecimal], sourceWalletId: WalletId, targetWalletId: WalletId) =
-      sql"INSERT INTO TRANSFERS(ID, TIMESTAMP, AMOUNT, ORIGIN_CURRENCY, TARGET_CURRENCY, CONVERSION_FEE, ORIGIN_ENTITY_ID, ORIGIN_ENTITY_TYPE, TARGET_ENTITY_ID, TARGET_ENTITY_TYPE) VALUES ( $id, $timestamp, $amount, $sourceCurrency, $targetCurrency, $fees, $sourceWalletId, 'WALLET', $targetWalletId, 'WALLET' )".update.run
-
     querySource.flatMap {
       case None => TransferCommandValidation.notWalletOwner(source).pure[ConnectionIO]
       case Some((sourceId, sourceBalance, _)) if sourceBalance < amount => TransferCommandValidation.walletBalanceTooLow(sourceId, sourceBalance).pure[ConnectionIO]
@@ -177,22 +179,22 @@ class BankingRepository(transactor: Transactor[IO]) {
             val timestamp = LocalDateTime.now()
             setWalletBalance(sourceId)(sourceBalance - amount) *>
               setWalletBalance(targetId)(targetBalance + amount) *>
-              setTransfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, Option.empty, sourceId, targetId) *>
+              setTransfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, Option.empty, WalletEntity(sourceId), WalletEntity(targetId)) *>
               TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, Option.empty, WalletEntity(sourceId), WalletEntity(targetId))).pure[ConnectionIO]
           case Some((targetId, targetBalance, targetCurrency)) =>
             val transferId = TransferId(UUID.randomUUID())
             val timestamp = LocalDateTime.now()
-            val exchange = currencyExchange((sourceCurrency, targetCurrency))
+            val exchange = CurrencyExchange((sourceCurrency, targetCurrency))
             val amountWithExchange = amount * exchange
             val spendeskFee = (SpendeskFee / 100) * amountWithExchange
             val amountToCredit = amountWithExchange - spendeskFee
             setWalletBalance(sourceId)(sourceBalance - amount) *>
               setWalletBalance(targetId)(targetBalance + amountToCredit) *>
-              setTransfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, spendeskFee.some, sourceId, targetId) *>
+              setTransfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, spendeskFee.some, WalletEntity(sourceId), WalletEntity(targetId)) *>
               queryMasterWallet(targetCurrency).flatMap {
                 case (masterWalletId, masterWalletBalance) =>
                   setWalletBalance(masterWalletId)(masterWalletBalance + spendeskFee) *>
-                    setTransfer(TransferId(UUID.randomUUID()), timestamp, spendeskFee, targetCurrency, targetCurrency, Option.empty, targetId, masterWalletId)
+                    setTransfer(TransferId(UUID.randomUUID()), timestamp, spendeskFee, targetCurrency, targetCurrency, Option.empty, WalletEntity(targetId), WalletEntity(masterWalletId))
               } *>
               TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount, sourceCurrency, targetCurrency, spendeskFee.some, WalletEntity(sourceId), WalletEntity(targetId))).pure[ConnectionIO]
         }

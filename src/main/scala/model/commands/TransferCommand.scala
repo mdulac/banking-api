@@ -7,6 +7,7 @@ import model.Wallet.WalletId
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
 
+import model.Wallet.WalletId.decoder
 
 final case class TransferCommand(
                                   amount: BigDecimal,
