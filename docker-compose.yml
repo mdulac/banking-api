@@ -1,0 +1,30 @@
+version: '3'
+services:
+  db:
+    image: nemerosa/h2
+    networks:
+      - banking-network
+    ports:
+      - 9082:9082
+      - 8082:8082
+    container_name: db
+  api:
+    image: banking-api:1.0-SNAPSHOT
+    networks:
+      - banking-network
+    ports:
+      - 8080:8080
+    depends_on:
+      - db
+    links:
+      - "db"
+    restart: always
+    container_name: api
+    environment:
+      - DB_URL=jdbc:h2:tcp://db:9082/banking-api
+      - DB_USER=
+      - DB_PWD=
+
+networks:
+  banking-network:
+    driver: bridge

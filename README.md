@@ -12,10 +12,10 @@ Run `sbt` in the project directory (root)
 
 Run `docker:publishLocal` in the SBT prompt
 
-## Run the server inside the docker container
-Run `docker run -p 8080:8080 -v $(pwd)/banking-db.mv.db:/home/demiourgos728/banking-db.mv.db banking-api:1.0-SNAPSHOT`
+## Run the server and the H2 database inside docker containers
+Run `docker-compose up` in the project root directory
 
-The server is listening at `localhost:8080`
+The server is listening at `localhost:8080` and the database at `jdbc:h2:tcp://localhost:9082/banking-api`
 
 You can use the openapi documentation `swagger.yaml` to use it inside Postman, for example
 

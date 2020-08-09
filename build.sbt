@@ -6,7 +6,6 @@ enablePlugins(AshScriptPlugin)
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(8080)
-dockerExposedVolumes := Seq("/tmp/docker/db")
 
 lazy val commonSettings = Seq(
   name := "banking-api",
