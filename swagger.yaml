@@ -1,0 +1,353 @@
+swagger: "2.0"
+info:
+  description: "Banking API"
+  version: "1.0.0"
+  title: "Banking API"
+  contact:
+    email: "mat.dulac@gmail.com"
+tags:
+- name: "user"
+  description: "Operation on card"
+- name: "company"
+  description: "Operation on company"
+- name: "card"
+  description: "Operation on card"
+- name: "wallet"
+  description: "Operation on wallet"
+- name: "transfer"
+  description: "Operation on transfer"
+schemes:
+- "http"
+paths:
+
+  /users:
+    get:
+      tags:
+      - "user"
+      summary: "List all users"
+      description: "List all users"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/User"
+              
+  /companies:
+    get:
+      tags:
+        - "company"
+      summary: "List all companies"
+      description: "List all companies"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Company"
+              
+  /wallets:
+    get:
+      tags:
+      - "wallet"
+      summary: "List all wallets of my company"
+      description: "List all wallets of my company"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Wallet"
+    post:
+      tags:
+      - "wallet"
+      summary: "Create a wallet"
+      description: "Create a wallet"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "CreateWalletCommand"
+        required: true
+        schema:
+          $ref: "#/definitions/CreateWalletCommand"
+      responses:
+        "201":
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Wallet"
+  /cards:
+    post:
+      tags:
+      - "card"
+      summary: "Create a card connected to a wallet"
+      description: "Create a card connected to a wallet"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: ""
+        required: true
+        schema:
+          $ref: "#/definitions/Card"
+      responses:
+        "201":
+          description: "card created"
+        "403":
+          description: "not owner of the card"
+
+    get:
+      tags:
+      - "card"
+      summary: "List all cards of my user"
+      description: "List all cards of my user"
+      produces:
+      - "application/json"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            type: "array"
+            items:
+              $ref: "#/definitions/Card"
+
+  /cards/{cardId}/block:
+    post:
+      tags:
+      - "card"
+      summary: "Block a card"
+      description: "Block a card"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "cardId"
+        in: "path"
+        description: "id of the card that must be blocked"
+        required: true
+        type: "string"
+        format: "uuid"
+      responses:
+        "200":
+          description: "successful operation"
+        "404":
+          description: "card not found"
+        "403":
+          description: "not owner of the card"
+        "400":
+          description: "card is already blocked"
+          
+  /cards/{cardId}/unblock:
+    post:
+      tags:
+      - "card"
+      summary: "Unblock a card"
+      description: "Unblock a card"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "cardId"
+        in: "path"
+        description: "id of the card that must be unblocked"
+        required: true
+        type: "string"
+        format: "uuid"
+      responses:
+        "200":
+          description: "successful operation"
+        "404":
+          description: "card not found"
+        "403":
+          description: "not owner of the card"
+        "400":
+          description: "card is already unblocked"
+          
+  /cards/{cardId}/load:
+    post:
+      tags:
+      - "card"
+      summary: "Load a card from a wallet"
+      description: "Load a card from a wallet"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "cardId"
+        in: "path"
+        description: "id of the card that must be unblocked"
+        required: true
+        type: "string"
+        format: "uuid"
+      - in: "body"
+        name: "body"
+        description: "LoadCardCommand"
+        required: true
+        schema:
+          $ref: "#/definitions/LoadCardCommand"
+      responses:
+        "200":
+          description: "successful operation"
+        "404":
+          description: "card not found"
+        "403":
+          description: "not owner of the card"
+        "400":
+          description: "card is blocked or wallet amount is too low"
+          
+  /transfer:
+    post:
+      tags:
+      - "transfer"
+      summary: "Tranfer amount between wallets"
+      description: "Tranfer amount between wallets"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "body"
+        name: "body"
+        description: "TransferCommand"
+        required: true
+        schema:
+          $ref: "#/definitions/TransferCommand"
+      responses:
+        "200":
+          description: "successful operation"
+          schema:
+            $ref: "#/definitions/Transfer"
+        "403":
+          description: "not owner of the source wallet"
+        "404":
+          description: "target wallet not found"
+        "400":
+          description: "wallet amount is too low"
+      
+definitions:
+  User:
+    type: "object"
+    properties:
+      userId:
+        type: "string"
+        format: "uuid"
+      companyId:
+        type: "string"
+        format: "uuid"
+  Company:
+    type: "object"
+    properties:
+      companyId:
+        type: "string"
+        format: "uuid"
+      name:
+        type: "string"
+  CreateWalletCommand:
+    type: "object"
+    properties:
+      balance:
+        type: "integer"
+      currency:
+        type: "string"
+        enum: [EUR, USD, GBP]
+      isMaster:
+        type: "boolean"
+  LoadCardCommand:
+    type: "object"
+    properties:
+      amount:
+        type: "integer"
+  TransferCommand:
+    type: "object"
+    properties:
+      amount:
+        type: "integer"
+      source:
+        type: "string"
+        format: "uuid"
+      target:
+        type: "string"
+        format: "uuid"
+  Wallet:
+    type: "object"
+    properties:
+      walletId:
+        type: "string"
+        format: "uuid"
+      balance:
+        type: "integer"
+      currency:
+        type: "string"
+        enum: [EUR, USD, GBP]
+      companyId:
+        type: "string"
+        format: "uuid"
+      isMaster:
+        type: "boolean"
+  Card:
+    type: "object"
+    properties:
+      cardId:
+        type: "string"
+        format: "uuid"
+      walletId:
+        type: "string"
+        format: "uuid"
+      currency:
+        type: "string"
+        enum: [EUR, USD, GBP]
+      balance:
+        type: "integer"
+      number:
+        type: "string"
+      expirationDate:
+        type: "string"
+        format: "date"
+      ccv:
+        type: "string"
+      userId:
+        type: "string"
+        format: "uuid"
+      isBlocked:
+        type: "boolean"
+  Transfer:
+    type: "object"
+    properties:
+      id:
+        type: "string"
+        format: "uuid"
+      timestamp:
+        type: "string"
+        format: "timestamp"
+      amount:
+        type: "integer"
+      originCurrency:
+        type: "string"
+        enum: [EUR, USD, GBP]
+      targetCurrency:
+        type: "string"
+        enum: [EUR, USD, GBP]
+      conversionFee:
+        type: "integer"
+      origin:
+        type: "object"
+      target:
+        type: "object"
+          
+externalDocs:
+  description: "Find out more about Swagger"
+  url: "http://swagger.io"
