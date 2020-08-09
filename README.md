@@ -29,4 +29,6 @@ Wallets : `c7f3c868-ea95-4072-a507-1543799d26fe`, `10f6d391-11cd-463b-8a51-c95bc
 
 Cards : `48a9cf36-32b2-4b79-8964-020ce6f234f9`, `5244839a-0272-4786-bb29-6423623578b5`
 
-__Do not forget to add headers User-Id and Company-Id in your http requests__
+__Do not forget to add headers `User-Id` and `Company-Id` in your http requests__
+
+You can use the file `banking-api.postman_collection.json` as an example
