@@ -1,4 +1,4 @@
-package service
+package routes
 
 import java.time.LocalDate
 import java.util.UUID.randomUUID
@@ -8,7 +8,12 @@ import cats.data.ValidatedNel
 import cats.effect.IO
 import cats.implicits.{catsStdInstancesForOption, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId}
 import io.circe.generic.auto._
+import model.Card.CardId.encoder
+import model.Company.CompanyId.encoder
 import model.Currency.currencyCodec
+import model.Transfer.TransferId.encoder
+import model.User.UserId.encoder
+import model.Wallet.WalletId.encoder
 import model.commands.CredentialsValidation.FieldMissing
 import model.commands._
 import model.{Card, Company, User, Wallet}
@@ -17,19 +22,13 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.`Content-Type`
 import org.http4s.util.CaseInsensitiveString
 import org.http4s.{HttpRoutes, MediaType, Request}
-import repository.AuthenticationStatus.{Authenticated, NotAllowed}
-import repository.BankingRepository
-
-import model.Wallet.WalletId.encoder
-import model.Company.CompanyId.encoder
-import model.Card.CardId.encoder
-import model.User.UserId.encoder
-import model.Transfer.TransferId.encoder
+import services.AuthenticationStatus.{Authenticated, NotAllowed}
+import services.BankingService
 
 import scala.collection.immutable.Vector.empty
 import scala.util.Random
 
-class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
+class BankingRoutes(service: BankingService) extends Http4sDsl[IO] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
@@ -45,20 +44,20 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
   val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
 
     case GET -> Root / "companies" =>
-      Ok(repository.listCompanies.fold(empty[Company])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+      Ok(service.listCompanies.fold(empty[Company])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
 
     case GET -> Root / "users" =>
-      Ok(repository.listUsers.fold(empty[User])((us, u) => u +: us), `Content-Type`(MediaType.application.json))
+      Ok(service.listUsers.fold(empty[User])((us, u) => u +: us), `Content-Type`(MediaType.application.json))
 
     case request@GET -> Root / "cards" =>
       val credentials = checkCredentials(request)
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, _) =>
-              Ok(repository.listCards(userId).fold(empty[Card])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+              Ok(service.listCards(userId).fold(empty[Card])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
           }
       )
 
@@ -67,10 +66,10 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(_, companyId) =>
-              Ok(repository.listWallets(companyId).fold(empty[Wallet])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+              Ok(service.listWallets(companyId).fold(empty[Wallet])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
           }
       )
 
@@ -79,12 +78,12 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(_, companyId) =>
               request.as[CreateWalletCommand].flatMap {
                 command =>
-                  repository.createWallet(randomUUID())(companyId)(command)
+                  service.createWallet(randomUUID())(companyId)(command)
                     .flatMap(wallet => Created(wallet, `Content-Type`(MediaType.application.json)))
               }
           }
@@ -95,12 +94,12 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, _) =>
               request.as[LoadCardCommand].flatMap {
                 command =>
-                  repository.loadCard(userId, cardId, command.amount)
+                  service.loadCard(userId, cardId, command.amount)
                     .flatMap {
                       case LoadCardCommandValidation.CardUnknown(cardId) => NotFound(s"Card $cardId is unknown")
                       case LoadCardCommandValidation.NotCardOwner(userId, cardId) => Forbidden(s"$userId is not card $cardId owner")
@@ -117,10 +116,10 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, _) =>
-              repository.blockCard(userId, cardId)
+              service.blockCard(userId, cardId)
                 .flatMap {
                   case BlockCardCommandValidation.CardUnknown(cardId) => NotFound(s"Card $cardId is unknown")
                   case BlockCardCommandValidation.NotCardOwner(userId, cardId) => Forbidden(s"$userId is not card $cardId owner")
@@ -135,10 +134,10 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, _) =>
-              repository.unblockCard(userId, cardId)
+              service.unblockCard(userId, cardId)
                 .flatMap {
                   case UnblockCardCommandValidation.CardUnknown(cardId) => NotFound(s"Card $cardId is unknown")
                   case UnblockCardCommandValidation.NotCardOwner(userId, cardId) => Forbidden(s"$userId is not card $cardId owner")
@@ -153,12 +152,12 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, companyId) =>
               request.as[CreateCardCommand].flatMap {
                 command =>
-                  repository.createCard(randomUUID(), randomNumber, LocalDate.now().plusMonths(1), randomCcv)(userId, companyId)(command)
+                  service.createCard(randomUUID(), randomNumber, LocalDate.now().plusMonths(1), randomCcv)(userId, companyId)(command)
                     .flatMap {
                       case CreateCardCommandValidation.NotWalletOwner(walletId) => Forbidden(s"$userId is not wallet $walletId owner")
                       case CreateCardCommandValidation.CardCreated(card) => Created(card, `Content-Type`(MediaType.application.json))
@@ -172,12 +171,12 @@ class BankingService(repository: BankingRepository) extends Http4sDsl[IO] {
       credentials.fold(
         errors => BadRequest(errors),
         credentials =>
-          repository.authenticate(credentials).flatMap {
+          service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, companyId) =>
               request.as[TransferCommand].flatMap {
                 command =>
-                  repository.transfer(companyId)(command.amount, command.source, command.target)
+                  service.transfer(companyId)(command.amount, command.source, command.target)
                     .flatMap {
                       case TransferCommandValidation.WalletUnknown(walletId) => NotFound(s"Wallet $walletId is unknown")
                       case TransferCommandValidation.NotWalletOwner(walletId) => Forbidden(s"$userId is not wallet $walletId owner")

@@ -6,7 +6,8 @@ import doobie.util.ExecutionContexts
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import repository.BankingRepository
-import service.BankingService
+import routes.BankingRoutes
+import services.BankingService
 
 object HttpServer {
 
@@ -26,12 +27,14 @@ object HttpServer {
   private def create(resources: Resources)(implicit concurrentEffect: ConcurrentEffect[IO], timer: Timer[IO]): IO[ExitCode] = {
     for {
       _ <- Database.initialize(resources.transactor)
-      repository = new BankingRepository(resources.transactor)
+      repository = new BankingRepository()
+      service = new BankingService(resources.transactor, repository)
       exitCode <- BlazeServerBuilder[IO]
         .bindHttp(resources.config.server.port, resources.config.server.host)
-        .withHttpApp(new BankingService(repository).routes.orNotFound).serve.compile.lastOrError
+        .withHttpApp(new BankingRoutes(service).routes.orNotFound).serve.compile.lastOrError
     } yield exitCode
   }
 
   case class Resources(transactor: HikariTransactor[IO], config: Config)
+
 }
