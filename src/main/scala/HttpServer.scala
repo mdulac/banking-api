@@ -5,7 +5,7 @@ import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
-import repository.BankingRepository
+import repository.{BankingRepository, SQLBankingRepository}
 import routes.BankingRoutes
 import services.BankingService
 
@@ -27,7 +27,7 @@ object HttpServer {
   private def create(resources: Resources)(implicit concurrentEffect: ConcurrentEffect[IO], timer: Timer[IO]): IO[ExitCode] = {
     for {
       _ <- Database.initialize(resources.transactor)
-      repository = new BankingRepository()
+      repository = new SQLBankingRepository()
       service = new BankingService(resources.transactor, repository)
       exitCode <- BlazeServerBuilder[IO]
         .bindHttp(resources.config.server.port, resources.config.server.host)

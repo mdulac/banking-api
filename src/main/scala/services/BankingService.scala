@@ -21,9 +21,9 @@ import model.User.UserId
 import model.Wallet.WalletId
 import model._
 import model.commands._
-import repository.BankingRepository
+import repository.SQLBankingRepository
 
-class BankingService[F[_] : Sync : FlatMap](transactor: Transactor[F], repository: BankingRepository) {
+class BankingService[F[_] : Sync : FlatMap](transactor: Transactor[F], repository: SQLBankingRepository) {
 
   private val SpendeskFee = 2.9
 

@@ -17,7 +17,39 @@ import model.commands._
 
 sealed trait AuthenticationStatus
 
-class BankingRepository() {
+trait BankingRepository[F[_]] {
+  def authenticate(credentials: Credentials): F[Option[(UserId, CompanyId)]]
+
+  def listCompanies: Stream[F, Company]
+
+  def listUsers: Stream[F, User]
+
+  def listCards(userId: UserId): Stream[F, Card]
+
+  def listWallets(companyId: CompanyId): Stream[F, Wallet]
+
+  def createWallet(id: UUID)(companyId: CompanyId)(balance: BigDecimal, currency: Currency, isMaster: Boolean): F[Wallet]
+
+  def queryWallet(companyId: CompanyId, walletId: WalletId): F[Option[(WalletId, BigDecimal, Currency)]]
+
+  def queryMasterWallet(currency: Currency): F[(WalletId, BigDecimal)]
+
+  def createCard(currency: Currency)(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): F[Int]
+
+  def queryWalletBalance(walletId: WalletId): F[BigDecimal]
+
+  def setWalletBalance(walletId: WalletId)(balance: BigDecimal): F[Int]
+
+  def setCardBalance(cardId: CardId)(balance: BigDecimal): F[Int]
+
+  def setTransfer(id: TransferId, timestamp: LocalDateTime, amount: BigDecimal, sourceCurrency: Currency, targetCurrency: Currency, fees: Option[BigDecimal], source: TransferEntity, target: TransferEntity): F[Int]
+
+  def blockCard(cardId: CardId): F[Int]
+
+  def unblockCard(cardId: CardId): F[Int]
+}
+
+class SQLBankingRepository() extends BankingRepository[ConnectionIO] {
 
   def authenticate(credentials: Credentials): ConnectionIO[Option[(UserId, CompanyId)]] = {
     sql"SELECT U.ID, C.ID FROM USERS U JOIN COMPANIES C on U.COMPANY_ID = C.ID WHERE U.ID = ${credentials.userId.value} AND C.ID = ${credentials.companyId.value}"
