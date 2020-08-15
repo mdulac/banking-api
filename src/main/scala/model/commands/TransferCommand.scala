@@ -1,13 +1,12 @@
 package model.commands
 
-import cats.effect.IO
+import cats.effect.Sync
 import io.circe.generic.auto._
 import model.Transfer
 import model.Wallet.WalletId
+import model.Wallet.WalletId.decoder
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
-
-import model.Wallet.WalletId.decoder
 
 final case class TransferCommand(
                                   amount: BigDecimal,
@@ -16,7 +15,7 @@ final case class TransferCommand(
                                 )
 
 object TransferCommand {
-  implicit val entityDecoder: EntityDecoder[IO, TransferCommand] = jsonOf[IO, TransferCommand]
+  implicit def entityDecoder[F[_] : Sync]: EntityDecoder[F, TransferCommand] = jsonOf[F, TransferCommand]
 }
 
 sealed trait TransferCommandValidation

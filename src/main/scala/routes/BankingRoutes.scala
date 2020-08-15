@@ -3,11 +3,13 @@ package routes
 import java.time.LocalDate
 import java.util.UUID.randomUUID
 
-import cats.Applicative
 import cats.data.ValidatedNel
-import cats.effect.IO
+import cats.effect.Sync
 import cats.implicits.{catsStdInstancesForOption, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId}
+import cats.syntax.flatMap.toFlatMapOps
+import cats.{Applicative, FlatMap}
 import io.circe.generic.auto._
+import model.AuthenticationStatus.{Authenticated, NotAllowed}
 import model.Card.CardId.encoder
 import model.Company.CompanyId.encoder
 import model.Currency.currencyCodec
@@ -22,26 +24,25 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.`Content-Type`
 import org.http4s.util.CaseInsensitiveString
 import org.http4s.{HttpRoutes, MediaType, Request}
-import services.AuthenticationStatus.{Authenticated, NotAllowed}
 import services.BankingService
 
 import scala.collection.immutable.Vector.empty
 import scala.util.Random
 
-class BankingRoutes(service: BankingService) extends Http4sDsl[IO] {
+class BankingRoutes[F[_] : Sync : FlatMap](service: BankingService[F]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
   private def randomNumber = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(16).mkString("")
 
-  private def checkCredentials(request: Request[IO]): ValidatedNel[CredentialsValidation, Credentials] = Applicative[Option].map2(
+  private def checkCredentials(request: Request[F]): ValidatedNel[CredentialsValidation, Credentials] = Applicative[Option].map2(
     request.headers.get(CaseInsensitiveString("User-Id")).map(_.value),
     request.headers.get(CaseInsensitiveString("Company-Id")).map(_.value)
   ) {
     case (userId, companyId) => (CredentialsValidation.validateUserId(userId), CredentialsValidation.validateCompanyId(companyId)).mapN(Credentials.apply)
   }.getOrElse(FieldMissing.invalidNel[Credentials])
 
-  val routes: HttpRoutes[IO] = HttpRoutes.of[IO] {
+  val routes: HttpRoutes[F] = HttpRoutes.of[F] {
 
     case GET -> Root / "companies" =>
       Ok(service.listCompanies.fold(empty[Company])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))

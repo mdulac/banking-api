@@ -4,7 +4,8 @@ import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
 import cats.Applicative.ops.toAllApplicativeOps
-import cats.effect.IO
+import cats.FlatMap
+import cats.effect.Sync
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
 import doobie.ConnectionIO
 import doobie.implicits._
@@ -22,17 +23,7 @@ import model._
 import model.commands._
 import repository.BankingRepository
 
-sealed trait AuthenticationStatus
-
-object AuthenticationStatus {
-
-  final case class Authenticated(userId: UserId, companyId: CompanyId) extends AuthenticationStatus
-
-  final case object NotAllowed extends AuthenticationStatus
-
-}
-
-class BankingService(transactor: Transactor[IO], repository: BankingRepository) {
+class BankingService[F[_] : Sync : FlatMap](transactor: Transactor[F], repository: BankingRepository) {
 
   private val SpendeskFee = 2.9
 
@@ -45,32 +36,32 @@ class BankingService(transactor: Transactor[IO], repository: BankingRepository) 
     (GBP, USD) -> 1.30
   )
 
-  def authenticate(credentials: Credentials): IO[AuthenticationStatus] = repository.authenticate(credentials).map {
+  def authenticate(credentials: Credentials): F[AuthenticationStatus] = repository.authenticate(credentials).map {
     case None => AuthenticationStatus.NotAllowed
     case Some((userId, companyId)) => AuthenticationStatus.Authenticated(userId, companyId)
   }.transact(transactor)
 
-  def listCompanies: Stream[IO, Company] = repository.listCompanies.transact(transactor)
+  def listCompanies: Stream[F, Company] = repository.listCompanies.transact(transactor)
 
-  def listUsers: Stream[IO, User] = repository.listUsers.transact(transactor)
+  def listUsers: Stream[F, User] = repository.listUsers.transact(transactor)
 
-  def listCards(userId: UserId): Stream[IO, Card] = repository.listCards(userId).transact(transactor)
+  def listCards(userId: UserId): Stream[F, Card] = repository.listCards(userId).transact(transactor)
 
-  def listWallets(companyId: CompanyId): Stream[IO, Wallet] = repository.listWallets(companyId).transact(transactor)
+  def listWallets(companyId: CompanyId): Stream[F, Wallet] = repository.listWallets(companyId).transact(transactor)
 
-  def createWallet(id: UUID)(companyId: CompanyId)(command: CreateWalletCommand): IO[Wallet] =
+  def createWallet(id: UUID)(companyId: CompanyId)(command: CreateWalletCommand): F[Wallet] =
     repository.createWallet(id)(companyId)(command.balance, command.currency, command.isMaster)
       .map(_ => Wallet(WalletId(id), command.balance, command.currency, companyId, command.isMaster))
       .transact(transactor)
 
-  def createCard(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId, companyId: CompanyId)(command: CreateCardCommand): IO[CreateCardCommandValidation] = {
+  def createCard(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] = {
     repository.queryWallet(companyId, command.walletId).flatMap {
       case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[ConnectionIO]
       case Some((walletId, _, currency)) => repository.createCard(currency)(id, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(CardId(id), walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[ConnectionIO]
     }.transact(transactor)
   }
 
-  def loadCard(userId: UserId, cardId: String, amount: BigDecimal): IO[LoadCardCommandValidation] = {
+  def loadCard(userId: UserId, cardId: String, amount: BigDecimal): F[LoadCardCommandValidation] = {
     repository.queryCard(cardId).flatMap {
       case None => LoadCardCommandValidation.cardUnknown(cardId).pure[ConnectionIO]
       case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
@@ -89,7 +80,7 @@ class BankingService(transactor: Transactor[IO], repository: BankingRepository) 
     }
   }.transact(transactor)
 
-  def blockCard(userId: UserId, cardId: String): IO[BlockCardCommandValidation] = {
+  def blockCard(userId: UserId, cardId: String): F[BlockCardCommandValidation] = {
     repository.queryCard(cardId).flatMap {
       case None => BlockCardCommandValidation.cardUnknown(cardId).pure[ConnectionIO]
       case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
@@ -102,7 +93,7 @@ class BankingService(transactor: Transactor[IO], repository: BankingRepository) 
     }
   }.transact(transactor)
 
-  def unblockCard(userId: UserId, cardId: String): IO[UnblockCardCommandValidation] = {
+  def unblockCard(userId: UserId, cardId: String): F[UnblockCardCommandValidation] = {
     repository.queryCard(cardId).flatMap {
       case None => UnblockCardCommandValidation.cardUnknown(cardId).pure[ConnectionIO]
       case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => UnblockCardCommandValidation.notCardOwner(userId, cardId).pure[ConnectionIO]
@@ -111,7 +102,7 @@ class BankingService(transactor: Transactor[IO], repository: BankingRepository) 
     }
   }.transact(transactor)
 
-  def transfer(companyId: CompanyId)(amount: BigDecimal, source: WalletId, target: WalletId): IO[TransferCommandValidation] = {
+  def transfer(companyId: CompanyId)(amount: BigDecimal, source: WalletId, target: WalletId): F[TransferCommandValidation] = {
     repository.queryWallet(companyId, source).flatMap {
       case None => TransferCommandValidation.notWalletOwner(source).pure[ConnectionIO]
       case Some((sourceId, sourceBalance, _)) if sourceBalance < amount => TransferCommandValidation.walletBalanceTooLow(sourceId, sourceBalance).pure[ConnectionIO]

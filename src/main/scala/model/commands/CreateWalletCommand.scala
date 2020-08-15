@@ -1,6 +1,6 @@
 package model.commands
 
-import cats.effect.IO
+import cats.effect.Sync
 import io.circe.generic.auto._
 import model.Currency
 import org.http4s.EntityDecoder
@@ -14,5 +14,5 @@ final case class CreateWalletCommand(
                                     )
 
 object CreateWalletCommand {
-  implicit val entityDecoder: EntityDecoder[IO, CreateWalletCommand] = jsonOf[IO, CreateWalletCommand]
+  implicit def entityDecoder[F[_] : Sync]: EntityDecoder[F, CreateWalletCommand] = jsonOf[F, CreateWalletCommand]
 }

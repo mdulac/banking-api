@@ -1,6 +1,6 @@
 package model.commands
 
-import cats.effect.IO
+import cats.effect.{IO, Sync}
 import io.circe.generic.auto._
 import model.Card
 import model.Wallet.WalletId
@@ -14,7 +14,7 @@ final case class CreateCardCommand(
                                   )
 
 object CreateCardCommand {
-  implicit val entityDecoder: EntityDecoder[IO, CreateCardCommand] = jsonOf[IO, CreateCardCommand]
+  implicit def entityDecoder[F[_]: Sync]: EntityDecoder[F, CreateCardCommand] = jsonOf[F, CreateCardCommand]
 }
 
 sealed trait CreateCardCommandValidation
