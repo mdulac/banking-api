@@ -27,8 +27,8 @@ object HttpServer {
   private def create(resources: Resources)(implicit concurrentEffect: ConcurrentEffect[IO], timer: Timer[IO]): IO[ExitCode] = {
     for {
       _ <- Database.initialize(resources.transactor)
-      repository = new SQLBankingRepository()
-      service = new BankingService(resources.transactor, repository)
+      repository = new SQLBankingRepository(resources.transactor)
+      service = new BankingService(repository)
       exitCode <- BlazeServerBuilder[IO]
         .bindHttp(resources.config.server.port, resources.config.server.host)
         .withHttpApp(new BankingRoutes(service).routes.orNotFound).serve.compile.lastOrError

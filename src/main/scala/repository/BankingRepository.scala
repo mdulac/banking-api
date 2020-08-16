@@ -3,10 +3,11 @@ package repository
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
-import doobie.ConnectionIO
+import cats.Monad
+import cats.effect.Sync
 import doobie.implicits._
 import doobie.implicits.javatime._
-import fs2.Stream
+import doobie.{ConnectionIO, Transactor}
 import model.Card.CardId
 import model.Company.CompanyId
 import model.Transfer.{TransferEntity, TransferId}
@@ -17,39 +18,50 @@ import model.commands._
 
 sealed trait AuthenticationStatus
 
-trait BankingRepository[F[_]] {
-  def authenticate(credentials: Credentials): F[Option[(UserId, CompanyId)]]
+trait BankingRepository[Query[_], F[_]] {
 
-  def listCompanies: Stream[F, Company]
+  implicit val Instance: Monad[Query]
 
-  def listUsers: Stream[F, User]
+  def transact[A](query: Query[A]): F[A]
 
-  def listCards(userId: UserId): Stream[F, Card]
+  def authenticate(credentials: Credentials): Query[Option[(UserId, CompanyId)]]
 
-  def listWallets(companyId: CompanyId): Stream[F, Wallet]
+  def listCompanies: Query[List[Company]]
 
-  def createWallet(id: UUID)(companyId: CompanyId)(balance: BigDecimal, currency: Currency, isMaster: Boolean): F[Wallet]
+  def listUsers: Query[List[User]]
 
-  def queryWallet(companyId: CompanyId, walletId: WalletId): F[Option[(WalletId, BigDecimal, Currency)]]
+  def listCards(userId: UserId): Query[List[Card]]
 
-  def queryMasterWallet(currency: Currency): F[(WalletId, BigDecimal)]
+  def listWallets(companyId: CompanyId): Query[List[Wallet]]
 
-  def createCard(currency: Currency)(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): F[Int]
+  def createWallet(id: UUID)(companyId: CompanyId)(balance: BigDecimal, currency: Currency, isMaster: Boolean): Query[Wallet]
 
-  def queryWalletBalance(walletId: WalletId): F[BigDecimal]
+  def queryWallet(companyId: CompanyId, walletId: WalletId): Query[Option[(WalletId, BigDecimal, Currency)]]
 
-  def setWalletBalance(walletId: WalletId)(balance: BigDecimal): F[Int]
+  def queryMasterWallet(currency: Currency): Query[(WalletId, BigDecimal)]
 
-  def setCardBalance(cardId: CardId)(balance: BigDecimal): F[Int]
+  def createCard(currency: Currency)(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): Query[Int]
 
-  def setTransfer(id: TransferId, timestamp: LocalDateTime, amount: BigDecimal, sourceCurrency: Currency, targetCurrency: Currency, fees: Option[BigDecimal], source: TransferEntity, target: TransferEntity): F[Int]
+  def queryCard(cardId: String): Query[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]]
 
-  def blockCard(cardId: CardId): F[Int]
+  def queryWalletBalance(walletId: WalletId): Query[BigDecimal]
 
-  def unblockCard(cardId: CardId): F[Int]
+  def setWalletBalance(walletId: WalletId)(balance: BigDecimal): Query[Int]
+
+  def setCardBalance(cardId: CardId)(balance: BigDecimal): Query[Int]
+
+  def setTransfer(id: TransferId, timestamp: LocalDateTime, amount: BigDecimal, sourceCurrency: Currency, targetCurrency: Currency, fees: Option[BigDecimal], source: TransferEntity, target: TransferEntity): Query[Int]
+
+  def blockCard(cardId: CardId): Query[Int]
+
+  def unblockCard(cardId: CardId): Query[Int]
 }
 
-class SQLBankingRepository() extends BankingRepository[ConnectionIO] {
+class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends BankingRepository[ConnectionIO, F] {
+
+  implicit val Instance: Monad[ConnectionIO] = implicitly
+
+  override def transact[A](query: ConnectionIO[A]): F[A] = transactor.trans.apply(query)
 
   def authenticate(credentials: Credentials): ConnectionIO[Option[(UserId, CompanyId)]] = {
     sql"SELECT U.ID, C.ID FROM USERS U JOIN COMPANIES C on U.COMPANY_ID = C.ID WHERE U.ID = ${credentials.userId.value} AND C.ID = ${credentials.companyId.value}"
@@ -57,28 +69,28 @@ class SQLBankingRepository() extends BankingRepository[ConnectionIO] {
       .option
   }
 
-  def listCompanies: Stream[ConnectionIO, Company] = {
+  def listCompanies: ConnectionIO[List[Company]] = {
     sql"SELECT ID, NAME FROM COMPANIES"
       .query[Company]
-      .stream
+      .to[List]
   }
 
-  def listUsers: Stream[ConnectionIO, User] = {
+  def listUsers: ConnectionIO[List[User]] = {
     sql"SELECT ID, COMPANY_ID FROM USERS"
       .query[User]
-      .stream
+      .to[List]
   }
 
-  def listCards(userId: UserId): Stream[ConnectionIO, Card] = {
+  def listCards(userId: UserId): ConnectionIO[List[Card]] = {
     sql"SELECT ID, WALLET_ID, CURRENCY, BALANCE, NUMBER, EXPIRATION_DATE, CCV, USER_ID, IS_BLOCKED FROM cards WHERE USER_ID = $userId"
       .query[Card]
-      .stream
+      .to[List]
   }
 
-  def listWallets(companyId: CompanyId): Stream[ConnectionIO, Wallet] = {
+  def listWallets(companyId: CompanyId): ConnectionIO[List[Wallet]] = {
     sql"SELECT ID, BALANCE, CURRENCY, COMPANY_ID, IS_MASTER FROM wallets WHERE COMPANY_ID = $companyId"
       .query[Wallet]
-      .stream
+      .to[List]
   }
 
   def createWallet(id: UUID)(companyId: CompanyId)(balance: BigDecimal, currency: Currency, isMaster: Boolean): ConnectionIO[Wallet] = {
@@ -137,5 +149,4 @@ class SQLBankingRepository() extends BankingRepository[ConnectionIO] {
     sql"UPDATE CARDS SET IS_BLOCKED = false WHERE ID = $cardId"
       .update
       .run
-
 }

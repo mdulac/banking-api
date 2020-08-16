@@ -18,7 +18,6 @@ import model.User.UserId.encoder
 import model.Wallet.WalletId.encoder
 import model.commands.CredentialsValidation.FieldMissing
 import model.commands._
-import model.{Card, Company, User, Wallet}
 import org.http4s.circe.CirceEntityCodec.circeEntityEncoder
 import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.`Content-Type`
@@ -26,10 +25,9 @@ import org.http4s.util.CaseInsensitiveString
 import org.http4s.{HttpRoutes, MediaType, Request}
 import services.BankingService
 
-import scala.collection.immutable.Vector.empty
 import scala.util.Random
 
-class BankingRoutes[F[_] : Sync : FlatMap](service: BankingService[F]) extends Http4sDsl[F] {
+class BankingRoutes[F[_] : Sync : FlatMap, Query[_] : Sync : FlatMap](service: BankingService[F, Query]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
@@ -45,10 +43,10 @@ class BankingRoutes[F[_] : Sync : FlatMap](service: BankingService[F]) extends H
   val routes: HttpRoutes[F] = HttpRoutes.of[F] {
 
     case GET -> Root / "companies" =>
-      Ok(service.listCompanies.fold(empty[Company])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+      service.listCompanies.flatMap(companies => Ok(companies, `Content-Type`(MediaType.application.json)))
 
     case GET -> Root / "users" =>
-      Ok(service.listUsers.fold(empty[User])((us, u) => u +: us), `Content-Type`(MediaType.application.json))
+      service.listUsers.flatMap(users => Ok(users, `Content-Type`(MediaType.application.json)))
 
     case request@GET -> Root / "cards" =>
       val credentials = checkCredentials(request)
@@ -58,7 +56,7 @@ class BankingRoutes[F[_] : Sync : FlatMap](service: BankingService[F]) extends H
           service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(userId, _) =>
-              Ok(service.listCards(userId).fold(empty[Card])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+              service.listCards(userId).flatMap(cards => Ok(cards, `Content-Type`(MediaType.application.json)))
           }
       )
 
@@ -70,7 +68,7 @@ class BankingRoutes[F[_] : Sync : FlatMap](service: BankingService[F]) extends H
           service.authenticate(credentials).flatMap {
             case NotAllowed => Forbidden(s"${credentials.userId} is not part of ${credentials.companyId}")
             case Authenticated(_, companyId) =>
-              Ok(service.listWallets(companyId).fold(empty[Wallet])((cs, c) => c +: cs), `Content-Type`(MediaType.application.json))
+              service.listWallets(companyId).flatMap(wallets => Ok(wallets, `Content-Type`(MediaType.application.json)))
           }
       )
 
