@@ -150,11 +150,11 @@ class BankingServicesSpec extends AnyFlatSpec with Matchers {
 
   it should "not load a blocked card" in {
     val service = new BankingService(newRepository())
+    import service._
     val userId = UserId(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec"))
     val cardId = CardId(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4"))
 
-    val p = service.blockCard(userId, cardId.toString) *>
-      service.loadCard(userId, cardId.toString, 1)
+    val p = blockCard(userId, cardId.toString) *> loadCard(userId, cardId.toString, 1)
 
     p.unsafeRunSync() match {
       case LoadCardCommandValidation.CardBlocked(_) => succeed
