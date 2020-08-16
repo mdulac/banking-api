@@ -22,8 +22,7 @@ import repository.BankingRepository
 
 class BankingService[F[_] : Sync : FlatMap, Query[_]](repository: BankingRepository[Query, F]) {
 
-  import repository.Instance
-  import repository.transact
+  import repository.{Instance, Transform, transact}
 
   private val SpendeskFee = 2.9
 

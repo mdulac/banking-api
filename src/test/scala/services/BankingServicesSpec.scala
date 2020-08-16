@@ -4,9 +4,10 @@ import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import java.util.UUID.fromString
 
-import cats.Monad
+import cats.Applicative.ops.toAllApplicativeOps
 import cats.effect.IO
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
+import cats.{Monad, ~>}
 import model.Card.CardId
 import model.Company.CompanyId
 import model.User.UserId
@@ -14,21 +15,25 @@ import model.Wallet.WalletId
 import model.commands.{Credentials, LoadCardCommandValidation}
 import model.{Card, Company, Currency, Transfer, User, Wallet}
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import repository.BankingRepository
 
-class BankingServicesSpec extends AnyFlatSpec {
+class BankingServicesSpec extends AnyFlatSpec with Matchers {
 
-  def modify[A](list: List[A])(f: A => Boolean)(m: A => A): List[A] = {
-    list.find(f) match {
-      case None => list
-      case Some(el) => m(el) +: list.filter(a => !f(a))
+  def newRepository: BankingRepository[IO, IO] = new BankingRepository[IO, IO]() {
+
+    def modify[A](list: List[A])(f: A => Boolean)(m: A => A): List[A] = {
+      list.find(f) match {
+        case None => list
+        case Some(el) => m(el) +: list.filter(a => !f(a))
+      }
     }
-  }
 
-  val repository: BankingRepository[IO, IO] = new BankingRepository[IO, IO]() {
+    override implicit val Transform: IO ~> IO = new (IO ~> IO) {
+      override def apply[A](fa: IO[A]): IO[A] = fa
+    }
+
     override val Instance: Monad[IO] = implicitly
-
-    override def transact[A](query: IO[A]): IO[A] = query
 
     override def authenticate(credentials: Credentials): IO[Option[(UserId, CompanyId)]] =
       (UserId(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec")), CompanyId(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17"))).some.pure[IO]
@@ -131,12 +136,27 @@ class BankingServicesSpec extends AnyFlatSpec {
 
   "Service" should "not load an unknown card" in {
     val unknownCardId = "ac7c35f7-fb14-4df6-b006-2f18d50268a6"
-    val service = new BankingService(repository)
-    val res = service.loadCard(UserId(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec")), unknownCardId, 1)
+    val service = new BankingService(newRepository)
 
-    res.unsafeRunSync() match {
+    val p = service.loadCard(UserId(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec")), unknownCardId, 1)
+
+    p.unsafeRunSync() match {
       case LoadCardCommandValidation.CardUnknown(_) => succeed
-      case _ => fail("Should be Card Unknown")
+      case f => fail(s"Should be Card Unknown : ${f}")
+    }
+  }
+
+  it should "not load a blocked card" in {
+    val service = new BankingService(newRepository)
+    val userId = UserId(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec"))
+
+    val p =
+      service.blockCard(userId, "ac7c35f7-fb14-4df6-b006-2f18d50268a4") *>
+        service.loadCard(userId, "ac7c35f7-fb14-4df6-b006-2f18d50268a4", 1)
+
+    p.unsafeRunSync() match {
+      case LoadCardCommandValidation.CardBlocked(_) => succeed
+      case f => fail(s"Should be Card Blocked : ${f}")
     }
   }
 

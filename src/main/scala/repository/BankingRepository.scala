@@ -3,8 +3,8 @@ package repository
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
-import cats.Monad
 import cats.effect.Sync
+import cats.{Monad, ~>}
 import doobie.implicits._
 import doobie.implicits.javatime._
 import doobie.{ConnectionIO, Transactor}
@@ -22,7 +22,9 @@ trait BankingRepository[Query[_], F[_]] {
 
   implicit val Instance: Monad[Query]
 
-  def transact[A](query: Query[A]): F[A]
+  implicit val Transform: Query ~> F
+
+  def transact[A](query: Query[A])(implicit T: Query ~> F): F[A] = T(query)
 
   def authenticate(credentials: Credentials): Query[Option[(UserId, CompanyId)]]
 
@@ -59,9 +61,11 @@ trait BankingRepository[Query[_], F[_]] {
 
 class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends BankingRepository[ConnectionIO, F] {
 
-  implicit val Instance: Monad[ConnectionIO] = implicitly
+  override implicit val Transform: ConnectionIO ~> F = new (ConnectionIO ~> F) {
+    override def apply[A](fa: ConnectionIO[A]): F[A] = transactor.trans.apply(fa)
+  }
 
-  override def transact[A](query: ConnectionIO[A]): F[A] = transactor.trans.apply(query)
+  implicit val Instance: Monad[ConnectionIO] = implicitly
 
   def authenticate(credentials: Credentials): ConnectionIO[Option[(UserId, CompanyId)]] = {
     sql"SELECT U.ID, C.ID FROM USERS U JOIN COMPANIES C on U.COMPANY_ID = C.ID WHERE U.ID = ${credentials.userId.value} AND C.ID = ${credentials.companyId.value}"
@@ -149,4 +153,5 @@ class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends Banki
     sql"UPDATE CARDS SET IS_BLOCKED = false WHERE ID = $cardId"
       .update
       .run
+
 }
