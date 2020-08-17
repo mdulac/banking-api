@@ -42,7 +42,7 @@ trait BankingRepository[Query[_], F[_]] {
 
   def queryMasterWallet(currency: Currency): Query[(WalletId, BigDecimal)]
 
-  def createCard(currency: Currency)(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): Query[Int]
+  def createCard(currency: Currency)(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): Query[Int]
 
   def queryCard(cardId: String): Query[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]]
 
@@ -114,8 +114,8 @@ class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends Banki
       .query[(WalletId, BigDecimal)]
       .unique
 
-  def createCard(currency: Currency)(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): ConnectionIO[Int] =
-    sql"INSERT INTO CARDS (ID, WALLET_ID, CURRENCY, BALANCE, NUMBER, EXPIRATION_DATE, CCV, USER_ID, IS_BLOCKED) VALUES ($id, $walletId, $currency, 0, $number, $expirationDate, $ccv, $userId, false)"
+  def createCard(currency: Currency)(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): ConnectionIO[Int] =
+    sql"INSERT INTO CARDS (ID, WALLET_ID, CURRENCY, BALANCE, NUMBER, EXPIRATION_DATE, CCV, USER_ID, IS_BLOCKED) VALUES ($cardId, $walletId, $currency, 0, $number, $expirationDate, $ccv, $userId, false)"
       .update
       .run
 

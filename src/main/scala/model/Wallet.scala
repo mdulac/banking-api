@@ -29,7 +29,12 @@ object Wallet {
   object WalletId {
     implicit val walletIdMeta: Meta[WalletId] = Meta[UUID].timap(WalletId.apply)(_.value)
     implicit val encoder: Encoder[WalletId] = Encoder.encodeString.contramap[WalletId](_.toString)
-    implicit val decoder: Decoder[WalletId] = Decoder.decodeString.map(x => WalletId(UUID.fromString(x))).withErrorMessage("ERRRROOR")
+    implicit val decoder: Decoder[WalletId] = Decoder.decodeString.map(x => WalletId(UUID.fromString(x))).withErrorMessage("Error while decoding walletId")
+
+    implicit class WalletIdOps(id: UUID) {
+      def walletId: WalletId = WalletId(id)
+    }
+
   }
 
 }

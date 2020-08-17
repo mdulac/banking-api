@@ -1,6 +1,6 @@
 package routes
 
-import java.time.LocalDate
+import java.time.LocalDate.now
 import java.util.UUID.randomUUID
 
 import cats.data.ValidatedNel
@@ -10,7 +10,7 @@ import cats.syntax.flatMap.toFlatMapOps
 import cats.{Applicative, FlatMap}
 import io.circe.generic.auto._
 import model.AuthenticationStatus.{Authenticated, NotAllowed}
-import model.Card.CardId.encoder
+import model.Card.CardId.{CardIdOps, encoder}
 import model.Company.CompanyId.encoder
 import model.Currency.currencyCodec
 import model.Transfer.TransferId.encoder
@@ -156,7 +156,7 @@ class BankingRoutes[F[_] : Sync : FlatMap, Query[_] : Sync : FlatMap](service: B
             case Authenticated(userId, companyId) =>
               request.as[CreateCardCommand].flatMap {
                 command =>
-                  service.createCard(randomUUID(), randomNumber, LocalDate.now().plusMonths(1), randomCcv)(userId, companyId)(command)
+                  service.createCard(randomUUID().cardId, randomNumber, now().plusMonths(1), randomCcv, userId, companyId)(command)
                     .flatMap {
                       case CreateCardCommandValidation.NotWalletOwner(walletId) => Forbidden(s"$userId is not wallet $walletId owner")
                       case CreateCardCommandValidation.CardCreated(card) => Created(card, `Content-Type`(MediaType.application.json))

@@ -63,10 +63,10 @@ class BankingService[F[_] : Sync : FlatMap, Query[_]](repository: BankingReposit
       .map(_ => Wallet(WalletId(id), command.balance, command.currency, companyId, command.isMaster))
   }
 
-  def createCard(id: UUID, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] = transact {
+  def createCard(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] = transact {
     repository.queryWallet(companyId, command.walletId).flatMap {
       case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[Query]
-      case Some((walletId, _, currency)) => repository.createCard(currency)(id, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(CardId(id), walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Query]
+      case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Query]
     }
   }
 

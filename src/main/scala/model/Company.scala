@@ -20,6 +20,10 @@ object Company {
   object CompanyId {
     implicit val companyIdMeta: Meta[CompanyId] = Meta[UUID].timap(CompanyId.apply)(_.value)
     implicit val encoder: Encoder[CompanyId] = Encoder.encodeString.contramap[CompanyId](_.toString)
+
+    implicit class CompanyIdOps(id: UUID) {
+      def companyId: CompanyId = CompanyId(id)
+    }
   }
 
 }
