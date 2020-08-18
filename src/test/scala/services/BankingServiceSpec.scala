@@ -1,6 +1,5 @@
 package services
 
-import java.time.LocalDate.now
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import java.util.UUID.fromString
@@ -125,6 +124,9 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
   }
 
+  val numberGen: Gen[String] = Gen.listOfN(16, Gen.choose(0, 1)).map(_.mkString(""))
+  val ccvGen: Gen[String] = Gen.listOfN(3, Gen.choose(0, 1)).map(_.mkString(""))
+
   "A user" should "create a wallet" in {
     forAll(uuid, choose(1, 10), Gen.oneOf(EUR, GBP, USD), Gen.oneOf(true, false)) { (walletId, balance, currency, isMaster) =>
       val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
@@ -144,56 +146,78 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
   }
 
   it should "create a card" in {
-    val repository = newRepository()
-    val service = new BankingService(repository)
+    forAll(
+      Gen.zip(
+        Gen.uuid.map(CardId.apply),
+        Gen.uuid,
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
+      ),
+      numberGen,
+      ccvGen,
+      Gen.const(LocalDate.now())
+    ) { case ((cardId, walletId, userId, companyId), number, ccv, expirationDate) =>
 
-    val cardId = fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId
-    val userId = fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId
-    val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
-    val walletId = fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId
-    val number = "1111111111111111"
-    val expirationDate = LocalDate.now()
+      val repository = newRepository()
+      val service = new BankingService(repository)
 
-    repository.createWallet(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31"))(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)(1, EUR, isMaster = false)
+      repository.createWallet(walletId)(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)(1, EUR, isMaster = false)
 
-    service.createCard(cardId, number, expirationDate, "123", userId, companyId)(CreateCardCommand(walletId)).unsafeRunSync() match {
-      case CardCreated(_) => succeed
-      case f => fail(s"Should be Card Created : $f")
+      service.createCard(cardId, number, expirationDate, ccv, userId, companyId)(CreateCardCommand(WalletId(walletId))).unsafeRunSync() match {
+        case CardCreated(_) => succeed
+        case f => fail(s"Should be Card Created : $f")
+      }
     }
   }
 
   it should "not load an unknown card" in {
-    val unknownCardId = "ac7c35f7-fb14-4df6-b006-2f18d50268a6"
-    val repository = newRepository()
-    val service = new BankingService(repository)
+    forAll(
+      Gen.zip(
+        Gen.uuid,
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
+        Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
+      ),
+      Gen.choose(1, 10),
+      numberGen,
+      ccvGen,
+      Gen.const(LocalDate.now())
+    ) { case ((unknownCardId, userId, walletId, cardId), amount, number, ccv, expirationDate) =>
+      val repository = newRepository()
+      val service = new BankingService(repository)
 
-    val userId = fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId
-    val walletId = fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId
-    val cardId = fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId
+      repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
-    repository.createCard(EUR)(cardId, "1111111111111111", now(), "123")(userId)(walletId)
-
-    service.loadCard(userId, unknownCardId, 1).unsafeRunSync() match {
-      case LoadCardCommandValidation.CardUnknown(_) => succeed
-      case f => fail(s"Should be Card Unknown : $f")
+      service.loadCard(userId, unknownCardId.toString, amount).unsafeRunSync() match {
+        case LoadCardCommandValidation.CardUnknown(_) => succeed
+        case f => fail(s"Should be Card Unknown : $f")
+      }
     }
   }
 
   it should "not load a blocked card" in {
-    val repository = newRepository()
-    val service = new BankingService(repository)
-    import service._
+    forAll(
+      Gen.zip(
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
+        Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
+      ),
+      Gen.choose(1, 10),
+      numberGen,
+      ccvGen,
+      Gen.const(LocalDate.now())
+    ) { case ((userId, walletId, cardId), amount, number, ccv, expirationDate) =>
+      val repository = newRepository()
+      val service = new BankingService(repository)
+      import service._
 
-    val userId = fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId
-    val walletId = fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId
-    val cardId = fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId
+      repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
+      repository.blockCard(cardId)
 
-    repository.createCard(EUR)(cardId, "1111111111111111", now(), "123")(userId)(walletId)
-    repository.blockCard(cardId)
-
-    loadCard(userId, cardId.toString, 1).unsafeRunSync() match {
-      case LoadCardCommandValidation.CardBlocked(_) => succeed
-      case f => fail(s"Should be Card Blocked : $f")
+      loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+        case LoadCardCommandValidation.CardBlocked(_) => succeed
+        case f => fail(s"Should be Card Blocked : $f")
+      }
     }
   }
 
