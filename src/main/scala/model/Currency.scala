@@ -5,7 +5,7 @@ import io.circe.Codec
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveEnumerationCodec
 
-sealed trait Currency
+sealed trait Currency extends Product with Serializable
 
 object Currency {
 

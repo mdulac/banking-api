@@ -48,7 +48,8 @@ lazy val root = (project in file("."))
 
       "ch.qos.logback" % "logback-classic" % Logback,
 
-      "org.scalatest" %% "scalatest" % ScalaTest % "it,test",
-      "org.scalamock" %% "scalamock" % ScalaMock % "test"
+      "org.scalatest" %% "scalatest" % ScalaTest % Test,
+      "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,
+      "org.scalacheck" %% "scalacheck" % "1.14.1" % Test
     )
   )
