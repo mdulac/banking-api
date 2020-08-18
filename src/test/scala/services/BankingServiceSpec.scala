@@ -21,7 +21,7 @@ import model.commands.CreateCardCommandValidation.CardCreated
 import model.commands.{CreateCardCommand, CreateWalletCommand, Credentials, LoadCardCommandValidation}
 import model.{Card, Company, Currency, Transfer, User, Wallet}
 import org.scalacheck.Gen
-import org.scalacheck.Gen.{choose, uuid}
+import org.scalacheck.Gen.uuid
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -126,9 +126,13 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
   val numberGen: Gen[String] = Gen.listOfN(16, Gen.choose(0, 1)).map(_.mkString(""))
   val ccvGen: Gen[String] = Gen.listOfN(3, Gen.choose(0, 1)).map(_.mkString(""))
+  val amountGen: Gen[Int] = Gen.choose(1, 1000)
+  val currencyGen: Gen[Currency] = Gen.oneOf(EUR, GBP, USD)
+  val booleanGen: Gen[Boolean] = Gen.oneOf(true, false)
+  val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
 
   "A user" should "create a wallet" in {
-    forAll(uuid, choose(1, 10), Gen.oneOf(EUR, GBP, USD), Gen.oneOf(true, false)) { (walletId, balance, currency, isMaster) =>
+    forAll(uuid, amountGen, currencyGen, booleanGen) { (walletId, balance, currency, isMaster) =>
       val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
 
       val repository = newRepository()
@@ -155,7 +159,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       ),
       numberGen,
       ccvGen,
-      Gen.const(LocalDate.now())
+      dateGen
     ) { case ((cardId, walletId, userId, companyId), number, ccv, expirationDate) =>
 
       val repository = newRepository()
@@ -178,10 +182,10 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
       ),
-      Gen.choose(1, 10),
+      amountGen,
       numberGen,
       ccvGen,
-      Gen.const(LocalDate.now())
+      dateGen
     ) { case ((unknownCardId, userId, walletId, cardId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
       val service = new BankingService(repository)
@@ -202,10 +206,10 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
       ),
-      Gen.choose(1, 10),
+      amountGen,
       numberGen,
       ccvGen,
-      Gen.const(LocalDate.now())
+      dateGen
     ) { case ((userId, walletId, cardId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
       val service = new BankingService(repository)

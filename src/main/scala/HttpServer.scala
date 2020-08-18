@@ -1,3 +1,5 @@
+import java.util.concurrent.Executors
+
 import cats.effect._
 import config.Config
 import db.Database
@@ -5,9 +7,11 @@ import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
-import repository.{BankingRepository, SQLBankingRepository}
+import repository.SQLBankingRepository
 import routes.BankingRoutes
 import services.BankingService
+
+import scala.concurrent.ExecutionContext
 
 object HttpServer {
 
@@ -29,7 +33,8 @@ object HttpServer {
       _ <- Database.initialize(resources.transactor)
       repository = new SQLBankingRepository(resources.transactor)
       service = new BankingService(repository)
-      exitCode <- BlazeServerBuilder[IO]
+      ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+      exitCode <- BlazeServerBuilder[IO](ec)
         .bindHttp(resources.config.server.port, resources.config.server.host)
         .withHttpApp(new BankingRoutes(service).routes.orNotFound).serve.compile.lastOrError
     } yield exitCode
