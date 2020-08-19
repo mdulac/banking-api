@@ -56,7 +56,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
     )
 
     val users = List(
-      User(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId, fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
+      User(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId, fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId),
+      User(fromString("b8a235a0-f39d-4d06-a8b1-79ec9510df29").userId, fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
     )
 
     var cards = List.empty[Card]
@@ -127,20 +128,19 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
   }
 
-  val numberGen: Gen[String] = Gen.listOfN(16, Gen.choose(0, 1)).map(_.mkString(""))
-  val ccvGen: Gen[String] = Gen.listOfN(3, Gen.choose(0, 1)).map(_.mkString(""))
-  val amountGen: Gen[Int] = Gen.choose(1, 1000)
-  val positiveAmountGen: Gen[BigDecimal Refined Positive] =
-    Gen.choose(1, 1000)
-      .map(BigDecimal.apply)
+  private val numberGen: Gen[String] = Gen.listOfN(16, Gen.choose(0, 1)).map(_.mkString(""))
+  private val ccvGen: Gen[String] = Gen.listOfN(3, Gen.choose(0, 1)).map(_.mkString(""))
+  private val amountGen: Gen[BigDecimal] = Gen.choose(1, 1000).map(BigDecimal.apply)
+  private val positiveAmountGen: Gen[BigDecimal Refined Positive] =
+    amountGen
       .map(refined.refineV[Positive].apply[BigDecimal])
       .flatMap {
         case Right(value) => Gen.const(value)
         case Left(_) => Gen.fail
       }
-  val currencyGen: Gen[Currency] = Gen.oneOf(EUR, GBP, USD)
-  val booleanGen: Gen[Boolean] = Gen.oneOf(true, false)
-  val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
+  private val currencyGen: Gen[Currency] = Gen.oneOf(EUR, GBP, USD)
+  private val booleanGen: Gen[Boolean] = Gen.oneOf(true, false)
+  private val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
 
   "A user" should "create a wallet" in {
     forAll(uuid, amountGen, currencyGen, booleanGen) { (walletId, balance, currency, isMaster) =>
@@ -237,6 +237,35 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
           i should be(walletId)
           b should be(amount.value - 1)
         case f => fail(s"Should be Wallet Balance Too Low : $f")
+      }
+    }
+  }
+
+  it should "not load a card if he's not the owner" in {
+    forAll(
+      Gen.zip(
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("b8a235a0-f39d-4d06-a8b1-79ec9510df29").userId),
+        Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
+        Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId),
+        Gen.const(fromString("5db6b5c0-e788-41c9-a6d0-e239af0b7f74").cardId)
+      ),
+      positiveAmountGen,
+      numberGen,
+      ccvGen,
+      dateGen
+    ) { case ((user1Id, user2Id, walletId, card1Id, card2Id), amount, number, ccv, expirationDate) =>
+      val repository = newRepository()
+      val service = new BankingService(repository)
+
+      repository.createCard(EUR)(card1Id, number, expirationDate, ccv)(user1Id)(walletId)
+      repository.createCard(EUR)(card2Id, number, expirationDate, ccv)(user2Id)(walletId)
+
+      service.loadCard(user1Id, card2Id.toString, amount).unsafeRunSync() match {
+        case LoadCardCommandValidation.NotCardOwner(userId, cardId) =>
+          userId should be (user1Id)
+          cardId should be (card2Id)
+        case f => fail(s"Should be Not Card Owner : $f")
       }
     }
   }
