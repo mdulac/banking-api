@@ -3,6 +3,7 @@ package routes
 import java.time.LocalDate.now
 import java.util.UUID.randomUUID
 
+import cats.MonoidK.ops.toAllMonoidKOps
 import cats.data.{Kleisli, OptionT, ValidatedNel}
 import cats.effect.Sync
 import cats.implicits.{catsStdInstancesForOption, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId}
@@ -23,7 +24,7 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.headers.`Content-Type`
 import org.http4s.server.AuthMiddleware
 import org.http4s.util.CaseInsensitiveString
-import org.http4s.{AuthedRoutes, HttpRoutes, MediaType, Request}
+import org.http4s.{Credentials => _, _}
 import services.BankingService
 
 import scala.util.Random
@@ -44,7 +45,7 @@ class BankingRoutes[F[_] : Sync : FlatMap, Query[_] : Sync : FlatMap](service: B
   val authenticate: Kleisli[OptionT[F, *], Request[F], Credentials] = Kleisli(request => checkCredentials(request).fold(_ => OptionT.none, c => OptionT.liftF(Sync[F].point(c))))
   val middleware: AuthMiddleware[F, Credentials] = AuthMiddleware(authenticate)
 
-  val routes: HttpRoutes[F] = HttpRoutes.of[F] {
+  val nonAuthedRoutes: HttpRoutes[F] = HttpRoutes.of[F] {
     case GET -> Root / "companies" => service.listCompanies.flatMap(companies => Ok(companies, `Content-Type`(MediaType.application.json)))
     case GET -> Root / "users" => service.listUsers.flatMap(users => Ok(users, `Content-Type`(MediaType.application.json)))
   }
@@ -148,5 +149,7 @@ class BankingRoutes[F[_] : Sync : FlatMap, Query[_] : Sync : FlatMap](service: B
           }
       }
   }
+
+  val routes: HttpRoutes[F] = nonAuthedRoutes <+> middleware(authedRoutes)
 
 }
