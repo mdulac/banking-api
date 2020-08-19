@@ -61,8 +61,8 @@ class BankingService[F[_] : Sync : FlatMap, Query[_]](repository: BankingReposit
   }
 
   def createWallet(id: UUID)(companyId: CompanyId)(command: CreateWalletCommand): F[Wallet] = transact {
-    repository.createWallet(id)(companyId)(command.balance, command.currency, command.isMaster)
-      .map(_ => Wallet(WalletId(id), command.balance, command.currency, companyId, command.isMaster))
+    repository.createWallet(id)(companyId)(command.balance.value, command.currency, command.isMaster)
+      .map(_ => Wallet(WalletId(id), command.balance.value, command.currency, companyId, command.isMaster))
   }
 
   def createCard(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] = transact {
