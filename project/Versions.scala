@@ -20,4 +20,6 @@ object Versions {
 
   lazy val Refined = "0.9.15"
 
+  lazy val KindProjector = "0.11.0"
+
 }

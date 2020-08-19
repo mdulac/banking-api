@@ -4,6 +4,8 @@ enablePlugins(DockerPlugin)
 enablePlugins(JavaAppPackaging)
 enablePlugins(AshScriptPlugin)
 
+addCompilerPlugin("org.typelevel" %% "kind-projector" % KindProjector cross CrossVersion.full)
+
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(8080)
 
