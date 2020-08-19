@@ -140,11 +140,11 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
       service.createWallet(walletId)(companyId)(CreateWalletCommand(balance, currency, isMaster)).unsafeRunSync() match {
         case Wallet(i, b, c, ci, m) =>
-          assert(i == WalletId(walletId))
-          assert(b == balance)
-          assert(c == currency)
-          assert(ci == companyId)
-          assert(m == isMaster)
+          i should be(WalletId(walletId))
+          b should be(balance)
+          c should be(currency)
+          ci should be(companyId)
+          m should be(isMaster)
       }
     }
   }
@@ -170,6 +170,62 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       service.createCard(cardId, number, expirationDate, ccv, userId, companyId)(CreateCardCommand(WalletId(walletId))).unsafeRunSync() match {
         case CardCreated(_) => succeed
         case f => fail(s"Should be Card Created : $f")
+      }
+    }
+  }
+
+  it should "load one of its card" in {
+    forAll(
+      Gen.zip(
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
+        Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId),
+        Gen.const(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
+      ),
+      amountGen,
+      numberGen,
+      ccvGen,
+      dateGen
+    ) { case ((userId, walletId, cardId, companyId), amount, number, ccv, expirationDate) =>
+      val repository = newRepository()
+      val service = new BankingService(repository)
+
+      repository.createWallet(walletId.value)(companyId)(amount, EUR, isMaster = false)
+      repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
+
+      service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+        case LoadCardCommandValidation.CardCredited(i, b) =>
+          i should be(cardId)
+          b should be(amount)
+        case f => fail(s"Should be Card Credited : $f")
+      }
+    }
+  }
+
+  it should "not load one a card if wallet balance is too low" in {
+    forAll(
+      Gen.zip(
+        Gen.const(fromString("c117d7e1-b746-4190-99cd-91d8c91211ec").userId),
+        Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
+        Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId),
+        Gen.const(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
+      ),
+      amountGen,
+      numberGen,
+      ccvGen,
+      dateGen
+    ) { case ((userId, walletId, cardId, companyId), amount, number, ccv, expirationDate) =>
+      val repository = newRepository()
+      val service = new BankingService(repository)
+
+      repository.createWallet(walletId.value)(companyId)(amount - 1, EUR, isMaster = false)
+      repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
+
+      service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+        case LoadCardCommandValidation.WalletBalanceTooLow(i, b) =>
+          i should be(walletId)
+          b should be(amount - 1)
+        case f => fail(s"Should be Wallet Balance Too Low : $f")
       }
     }
   }
