@@ -30,7 +30,7 @@ import services.BankingService
 
 import scala.util.Random
 
-class BankingRoutes[F[_] : Sync : FlatMap, Query[_] : Sync : FlatMap](service: BankingService[F, Query]) extends Http4sDsl[F] {
+class BankingRoutes[F[_] : Sync : FlatMap, Query[_]](service: BankingService[F, Query]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
