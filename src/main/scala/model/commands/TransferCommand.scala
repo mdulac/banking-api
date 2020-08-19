@@ -1,15 +1,18 @@
 package model.commands
 
 import cats.effect.Sync
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.numeric.Positive
 import io.circe.generic.auto._
 import model.Transfer
 import model.Wallet.WalletId
 import model.Wallet.WalletId.decoder
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
+import io.circe.refined._
 
 final case class TransferCommand(
-                                  amount: BigDecimal,
+                                  amount: BigDecimal Refined Positive,
                                   source: WalletId,
                                   target: WalletId
                                 )

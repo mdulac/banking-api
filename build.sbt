@@ -42,6 +42,10 @@ lazy val root = (project in file("."))
       "io.circe" %% "circe-literal" % Circe % "it,test",
       "io.circe" %% "circe-optics" % Circe % "it",
       "io.circe" %% "circe-generic-extras" % Circe,
+      "io.circe" %% "circe-refined" % Circe,
+
+      "eu.timepit" %% "refined" % Refined,
+      "eu.timepit" %% "refined-scalacheck" % Refined % Test,
 
       "com.github.pureconfig" %% "pureconfig" % PureConfig,
       "com.github.pureconfig" %% "pureconfig-cats-effect" % PureConfig,

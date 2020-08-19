@@ -7,6 +7,9 @@ import java.util.UUID.fromString
 import cats.effect.IO
 import cats.implicits.catsSyntaxOptionId
 import cats.{Id, Monad, ~>}
+import eu.timepit.refined
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.numeric.Positive
 import model.Card.CardId
 import model.Card.CardId.CardIdOps
 import model.Company.CompanyId
@@ -127,6 +130,14 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
   val numberGen: Gen[String] = Gen.listOfN(16, Gen.choose(0, 1)).map(_.mkString(""))
   val ccvGen: Gen[String] = Gen.listOfN(3, Gen.choose(0, 1)).map(_.mkString(""))
   val amountGen: Gen[Int] = Gen.choose(1, 1000)
+  val positiveAmountGen: Gen[BigDecimal Refined Positive] =
+    Gen.choose(1, 1000)
+      .map(BigDecimal.apply)
+      .map(refined.refineV[Positive].apply[BigDecimal])
+      .flatMap {
+        case Right(value) => Gen.const(value)
+        case Left(_) => Gen.fail
+      }
   val currencyGen: Gen[Currency] = Gen.oneOf(EUR, GBP, USD)
   val booleanGen: Gen[Boolean] = Gen.oneOf(true, false)
   val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
@@ -182,7 +193,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId),
         Gen.const(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
       ),
-      amountGen,
+      positiveAmountGen,
       numberGen,
       ccvGen,
       dateGen
@@ -190,13 +201,13 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       val repository = newRepository()
       val service = new BankingService(repository)
 
-      repository.createWallet(walletId.value)(companyId)(amount, EUR, isMaster = false)
+      repository.createWallet(walletId.value)(companyId)(amount.value, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
       service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.CardCredited(i, b) =>
           i should be(cardId)
-          b should be(amount)
+          b should be(amount.value)
         case f => fail(s"Should be Card Credited : $f")
       }
     }
@@ -210,7 +221,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId),
         Gen.const(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)
       ),
-      amountGen,
+      positiveAmountGen,
       numberGen,
       ccvGen,
       dateGen
@@ -218,13 +229,13 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       val repository = newRepository()
       val service = new BankingService(repository)
 
-      repository.createWallet(walletId.value)(companyId)(amount - 1, EUR, isMaster = false)
+      repository.createWallet(walletId.value)(companyId)(amount.value - 1, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
       service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.WalletBalanceTooLow(i, b) =>
           i should be(walletId)
-          b should be(amount - 1)
+          b should be(amount.value - 1)
         case f => fail(s"Should be Wallet Balance Too Low : $f")
       }
     }
@@ -238,7 +249,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
       ),
-      amountGen,
+      positiveAmountGen,
       numberGen,
       ccvGen,
       dateGen
@@ -262,7 +273,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
         Gen.const(fromString("cb9ef80a-22e9-434a-92bc-0bf060b6ef31").walletId),
         Gen.const(fromString("ac7c35f7-fb14-4df6-b006-2f18d50268a4").cardId)
       ),
-      amountGen,
+      positiveAmountGen,
       numberGen,
       ccvGen,
       dateGen

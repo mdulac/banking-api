@@ -1,16 +1,19 @@
 package model.commands
 
-import cats.effect.{IO, Sync}
+import cats.effect.Sync
+import eu.timepit.refined.api.Refined
+import eu.timepit.refined.numeric.Positive
 import io.circe.generic.auto._
 import model.Card.CardId
 import model.User.UserId
 import model.Wallet.WalletId
 import org.http4s.EntityDecoder
 import org.http4s.circe.jsonOf
+import io.circe.refined._
 
 
 final case class LoadCardCommand(
-                                  amount: BigDecimal,
+                                  amount: BigDecimal Refined Positive,
                                 )
 
 object LoadCardCommand {

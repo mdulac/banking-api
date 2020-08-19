@@ -18,4 +18,6 @@ object Versions {
 
   lazy val ScalaMock = "5.0.0"
 
+  lazy val Refined = "0.9.15"
+
 }
