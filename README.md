@@ -21,7 +21,7 @@ You can use the openapi documentation `swagger.yaml` to use it inside Postman, f
 
 ## Examples
 Some users, companies, wallets and cards are already created, from the flighway SQL scripts
-Companies : `6ca1e2b7-f11c-4f95-945f-78f75a09382d` (Spendesk for the master wallets), `9d6493b3-b550-49a5-9a55-a5b0568225fc`
+Companies : `6ca1e2b7-f11c-4f95-945f-78f75a09382d` (Holding for the master wallets), `9d6493b3-b550-49a5-9a55-a5b0568225fc`
 
 Users : `f0ef3449-f5f8-4e07-82ee-683247e11dc3`, `76c4785e-da22-4cfe-8495-27ae4d6f9c15`
 

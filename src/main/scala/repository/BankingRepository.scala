@@ -110,7 +110,7 @@ class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends Banki
       .option
 
   def queryMasterWallet(currency: Currency) =
-    sql"SELECT W.ID, W.BALANCE FROM WALLETS W JOIN COMPANIES C on C.ID = W.COMPANY_ID WHERE CURRENCY = $currency AND C.NAME = 'Spendesk'"
+    sql"SELECT W.ID, W.BALANCE FROM WALLETS W JOIN COMPANIES C on C.ID = W.COMPANY_ID WHERE CURRENCY = $currency AND C.NAME = 'Holding'"
       .query[(WalletId, BigDecimal)]
       .unique
 
