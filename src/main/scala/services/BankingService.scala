@@ -11,6 +11,7 @@ import cats.syntax.flatMap.toFlatMapOps
 import doobie.implicits.javatime._
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
+import io.chrisdavenport.log4cats.Logger
 import model.Card.CardId
 import model.Company.CompanyId
 import model.Currency.{EUR, GBP, USD}
@@ -22,7 +23,7 @@ import model._
 import model.commands._
 import repository.BankingRepository
 
-class BankingService[F[_] : Sync : FlatMap, Query[_]](repository: BankingRepository[Query, F]) {
+class BankingService[F[_] : Sync : FlatMap : Logger, Query[_]](repository: BankingRepository[Query, F]) {
 
   import repository.{Instance, Transform, transact}
 

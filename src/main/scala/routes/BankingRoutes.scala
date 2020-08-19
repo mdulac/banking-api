@@ -3,13 +3,13 @@ package routes
 import java.time.LocalDate.now
 import java.util.UUID.randomUUID
 
-import cats.MonoidK.ops.toAllMonoidKOps
 import cats.data.OptionT.liftF
 import cats.data.{Kleisli, ValidatedNel}
 import cats.effect.Sync
-import cats.implicits.{catsKernelStdMonoidForString, catsStdInstancesForOption, catsSyntaxEitherId, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId}
+import cats.implicits.{catsKernelStdMonoidForString, catsStdInstancesForOption, catsSyntaxEitherId, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId, _}
 import cats.syntax.flatMap.toFlatMapOps
 import cats.{Applicative, FlatMap}
+import io.chrisdavenport.log4cats.Logger
 import io.circe.generic.auto._
 import model.AuthenticationStatus.{Authenticated, NotAllowed}
 import model.Card.CardId.{CardIdOps, encoder}
@@ -30,7 +30,7 @@ import services.BankingService
 
 import scala.util.Random
 
-class BankingRoutes[F[_] : Sync : FlatMap, Query[_]](service: BankingService[F, Query]) extends Http4sDsl[F] {
+class BankingRoutes[F[_] : Sync : FlatMap : Logger, Query[_]](service: BankingService[F, Query]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
@@ -71,11 +71,12 @@ class BankingRoutes[F[_] : Sync : FlatMap, Query[_]](service: BankingService[F, 
       service.listWallets(credentials.companyId).flatMap(wallets => Ok(wallets, `Content-Type`(MediaType.application.json)))
 
     case request@POST -> Root / "wallets" as credentials =>
-      request.req.as[CreateWalletCommand].flatMap {
-        command =>
-          service.createWallet(randomUUID())(credentials.companyId)(command)
-            .flatMap(wallet => Created(wallet, `Content-Type`(MediaType.application.json)))
-      }
+      Logger[F].info("Create wallet route") *>
+        request.req.as[CreateWalletCommand].flatMap {
+          command =>
+            service.createWallet(randomUUID())(credentials.companyId)(command)
+              .flatMap(wallet => Created(wallet, `Content-Type`(MediaType.application.json)))
+        }
 
     case request@POST -> Root / "cards" / cardId / "load" as credentials =>
       request.req.as[LoadCardCommand].flatMap {

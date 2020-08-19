@@ -4,12 +4,13 @@ import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import java.util.UUID.fromString
 
-import cats.effect.IO
+import cats.effect.{Sync, SyncIO}
 import cats.implicits.catsSyntaxOptionId
 import cats.{Id, Monad, ~>}
 import eu.timepit.refined
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import model.Card.CardId
 import model.Card.CardId.CardIdOps
 import model.Company.CompanyId
@@ -33,7 +34,9 @@ import repository.BankingRepository
 
 class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
-  def newRepository(): BankingRepository[Id, IO] = new BankingRepository[Id, IO]() {
+  implicit def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
+
+  def newRepository(): BankingRepository[Id, SyncIO] = new BankingRepository[Id, SyncIO]() {
 
     private def modify[A](list: List[A])(f: A => Boolean)(m: A => A): List[A] = {
       list.find(f) match {
@@ -42,8 +45,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       }
     }
 
-    override implicit val Transform: Id ~> IO = new (Id ~> IO) {
-      override def apply[A](fa: Id[A]): IO[A] = IO.delay(fa)
+    override implicit val Transform: Id ~> SyncIO = new (Id ~> SyncIO) {
+      override def apply[A](fa: Id[A]): SyncIO[A] = SyncIO.apply(fa)
     }
 
     override val Instance: Monad[Id] = implicitly[Monad[Id]]
@@ -142,6 +145,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
   private val booleanGen: Gen[Boolean] = Gen.oneOf(true, false)
   private val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
 
+  behavior of "wallet creation"
+
   "A user" should "create a wallet" in {
     forAll(uuid, positiveAmountGen, currencyGen, booleanGen) { (walletId, balance, currency, isMaster) =>
       val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
@@ -159,6 +164,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       }
     }
   }
+
+  behavior of "card creation"
 
   it should "create a card" in {
     forAll(
@@ -184,6 +191,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       }
     }
   }
+
+  behavior of "card load"
 
   it should "load one of its card" in {
     forAll(
@@ -320,5 +329,9 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       }
     }
   }
+
+  behavior of "card block / unblock"
+
+  behavior of "transfer"
 
 }

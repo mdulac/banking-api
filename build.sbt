@@ -5,6 +5,7 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(AshScriptPlugin)
 
 addCompilerPlugin("org.typelevel" %% "kind-projector" % KindProjector cross CrossVersion.full)
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % BetterMonadicFor)
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(8080)
@@ -53,6 +54,8 @@ lazy val root = (project in file("."))
       "com.github.pureconfig" %% "pureconfig-cats-effect" % PureConfig,
 
       "ch.qos.logback" % "logback-classic" % Logback,
+      "io.chrisdavenport" %% "log4cats-core"    % Log4cats,
+      "io.chrisdavenport" %% "log4cats-slf4j"   % Log4cats,
 
       "org.scalatest" %% "scalatest" % ScalaTest % Test,
       "org.scalatestplus" %% "scalacheck-1-14" % "3.1.1.1" % Test,

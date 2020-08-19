@@ -14,6 +14,8 @@ object Versions {
 
   lazy val Logback = "1.2.3"
 
+  lazy val Log4cats = "1.1.1"
+
   lazy val ScalaTest = "3.2.1"
 
   lazy val ScalaMock = "5.0.0"
@@ -21,5 +23,7 @@ object Versions {
   lazy val Refined = "0.9.15"
 
   lazy val KindProjector = "0.11.0"
+
+  lazy val BetterMonadicFor = "0.3.1"
 
 }

@@ -5,6 +5,8 @@ import config.Config
 import db.Database
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
+import io.chrisdavenport.log4cats.SelfAwareStructuredLogger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import repository.SQLBankingRepository
@@ -30,6 +32,7 @@ object HttpServer {
 
   private def create(resources: Resources)(implicit concurrentEffect: ConcurrentEffect[IO], timer: Timer[IO]): IO[ExitCode] = {
     for {
+      implicit0(logger: SelfAwareStructuredLogger[IO]) <- Slf4jLogger.create[IO]
       _ <- Database.initialize(resources.transactor)
       repository = new SQLBankingRepository(resources.transactor)
       service = new BankingService(repository)
