@@ -24,15 +24,23 @@ object Credentials {
   implicit val validationCodec: Codec[CredentialsValidation] = deriveEnumerationCodec[CredentialsValidation]
 }
 
-sealed trait CredentialsValidation
+sealed trait CredentialsValidation {
+  val message: String
+}
 
 object CredentialsValidation {
 
-  final case object FieldMissing extends CredentialsValidation
+  final case object FieldMissing extends CredentialsValidation {
+    override val message: String = "A field is missing"
+  }
 
-  final case object UserIdMalformed extends CredentialsValidation
+  final case object UserIdMalformed extends CredentialsValidation {
+    override val message: String = "userId is malformed"
+  }
 
-  final case object CompanyIdMalformed extends CredentialsValidation
+  final case object CompanyIdMalformed extends CredentialsValidation {
+    override val message: String = "companyId is malformed"
+  }
 
   def validateUserId(value: String): ValidatedNel[CredentialsValidation, UserId] =
     Try(UUID.fromString(value)).map(u => UserId(u).validNel).getOrElse(UserIdMalformed.invalidNel)

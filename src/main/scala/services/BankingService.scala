@@ -39,7 +39,7 @@ class BankingService[F[_] : Sync : FlatMap, Query[_]](repository: BankingReposit
 
   def authenticate(credentials: Credentials): F[AuthenticationStatus] = transact {
     repository.authenticate(credentials).map {
-      case None => AuthenticationStatus.NotAllowed
+      case None => AuthenticationStatus.NotAllowed(credentials.userId, credentials.companyId)
       case Some((userId, companyId)) => AuthenticationStatus.Authenticated(userId, companyId)
     }
   }

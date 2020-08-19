@@ -9,6 +9,6 @@ object AuthenticationStatus {
 
   final case class Authenticated(userId: UserId, companyId: CompanyId) extends AuthenticationStatus
 
-  final case object NotAllowed extends AuthenticationStatus
+  final case class NotAllowed(userId: UserId, companyId: CompanyId) extends AuthenticationStatus
 
 }
