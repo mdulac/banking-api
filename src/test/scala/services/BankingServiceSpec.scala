@@ -143,7 +143,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
   private val dateGen: Gen[LocalDate] = Gen.const(LocalDate.now())
 
   "A user" should "create a wallet" in {
-    forAll(uuid, amountGen, currencyGen, booleanGen) { (walletId, balance, currency, isMaster) =>
+    forAll(uuid, positiveAmountGen, currencyGen, booleanGen) { (walletId, balance, currency, isMaster) =>
       val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
 
       val repository = newRepository()
@@ -152,7 +152,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       service.createWallet(walletId)(companyId)(CreateWalletCommand(balance, currency, isMaster)).unsafeRunSync() match {
         case Wallet(i, b, c, ci, m) =>
           i should be(WalletId(walletId))
-          b should be(balance)
+          b should be(balance.value)
           c should be(currency)
           ci should be(companyId)
           m should be(isMaster)
@@ -263,8 +263,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
       service.loadCard(user1Id, card2Id.toString, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.NotCardOwner(userId, cardId) =>
-          userId should be (user1Id)
-          cardId should be (card2Id)
+          userId should be(user1Id)
+          cardId should be(card2Id)
         case f => fail(s"Should be Not Card Owner : $f")
       }
     }
