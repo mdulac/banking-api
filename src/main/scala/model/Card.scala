@@ -9,7 +9,7 @@ import eu.timepit.refined.api.Refined
 import eu.timepit.refined.collection.Size
 import eu.timepit.refined.numeric.Interval
 import io.circe.Encoder
-import model.Card.{CardId, Ccv}
+import model.Card.CardId
 import model.User.UserId
 import model.Wallet.WalletId
 
