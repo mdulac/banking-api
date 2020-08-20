@@ -5,11 +5,12 @@ import java.util.UUID
 import java.util.UUID.fromString
 
 import cats.effect.{Sync, SyncIO}
-import cats.implicits.catsSyntaxOptionId
+import cats.implicits.{catsSyntaxOptionId, showInterpolator}
 import cats.{Id, Monad, ~>}
 import eu.timepit.refined
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
+import io.chrisdavenport.log4cats.SelfAwareStructuredLogger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import model.Card.CardId
 import model.Card.CardId.CardIdOps
@@ -34,7 +35,7 @@ import repository.BankingRepository
 
 class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
-  implicit def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
+  implicit def unsafeLogger[F[_] : Sync]: SelfAwareStructuredLogger[F] = Slf4jLogger.getLogger[F]
 
   def newRepository(): BankingRepository[Id, SyncIO] = new BankingRepository[Id, SyncIO]() {
 
@@ -94,8 +95,8 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       1
     }
 
-    override def queryCard(cardId: String): Id[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]] =
-      cards.find(c => c.cardId.toString == cardId).map(c => (c.cardId, c.userId, c.walletId, c.balance, c.currency, c.isBlocked))
+    override def queryCard(cardId: CardId): Id[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]] =
+      cards.find(c => c.cardId == cardId).map(c => (c.cardId, c.userId, c.walletId, c.balance, c.currency, c.isBlocked))
 
     override def queryWalletBalance(walletId: WalletId): Id[BigDecimal] = wallets.find(w => w.walletId == walletId).map(_.balance).get // FIXME
 
@@ -187,7 +188,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
       service.createCard(cardId, number, expirationDate, ccv, userId, companyId)(CreateCardCommand(WalletId(walletId))).unsafeRunSync() match {
         case CardCreated(_) => succeed
-        case f => fail(s"Should be Card Created : $f")
+        case f => fail(show"Should be Card Created : $f")
       }
     }
   }
@@ -213,11 +214,11 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       repository.createWallet(walletId.value)(companyId)(amount.value, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
-      service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+      service.loadCard(userId, cardId, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.CardCredited(i, b) =>
           i should be(cardId)
           b should be(amount.value)
-        case f => fail(s"Should be Card Credited : $f")
+        case f => fail(show"Should be Card Credited : $f")
       }
     }
   }
@@ -241,11 +242,11 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       repository.createWallet(walletId.value)(companyId)(amount.value - 1, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
-      service.loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+      service.loadCard(userId, cardId, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.WalletBalanceTooLow(i, b) =>
           i should be(walletId)
           b should be(amount.value - 1)
-        case f => fail(s"Should be Wallet Balance Too Low : $f")
+        case f => fail(show"Should be Wallet Balance Too Low : $f")
       }
     }
   }
@@ -270,11 +271,11 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       repository.createCard(EUR)(card1Id, number, expirationDate, ccv)(user1Id)(walletId)
       repository.createCard(EUR)(card2Id, number, expirationDate, ccv)(user2Id)(walletId)
 
-      service.loadCard(user1Id, card2Id.toString, amount).unsafeRunSync() match {
+      service.loadCard(user1Id, card2Id, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.NotCardOwner(userId, cardId) =>
           userId should be(user1Id)
           cardId should be(card2Id)
-        case f => fail(s"Should be Not Card Owner : $f")
+        case f => fail(show"Should be Not Card Owner : $f")
       }
     }
   }
@@ -297,9 +298,9 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
 
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
-      service.loadCard(userId, unknownCardId.toString, amount).unsafeRunSync() match {
+      service.loadCard(userId, unknownCardId.cardId, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.CardUnknown(_) => succeed
-        case f => fail(s"Should be Card Unknown : $f")
+        case f => fail(show"Should be Card Unknown : $f")
       }
     }
   }
@@ -323,9 +324,9 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
       repository.blockCard(cardId)
 
-      loadCard(userId, cardId.toString, amount).unsafeRunSync() match {
+      loadCard(userId, cardId, amount).unsafeRunSync() match {
         case LoadCardCommandValidation.CardBlocked(_) => succeed
-        case f => fail(s"Should be Card Blocked : $f")
+        case f => fail(show"Should be Card Blocked : $f")
       }
     }
   }

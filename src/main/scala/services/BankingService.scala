@@ -6,7 +6,7 @@ import java.util.UUID
 import cats.Applicative.ops.toAllApplicativeOps
 import cats.FlatMap
 import cats.effect.Sync
-import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
+import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId, showInterpolator}
 import cats.syntax.flatMap.toFlatMapOps
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
@@ -45,22 +45,22 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
   }
 
   def listCompanies: F[List[Company]] =
-    Logger[F].info(s"List companies") *> transact {
+    Logger[F].info("List companies") *> transact {
       repository.listCompanies
     }
 
   def listUsers: F[List[User]] =
-    Logger[F].info(s"List users") *> transact {
+    Logger[F].info("List users") *> transact {
       repository.listUsers
     }
 
   def listCards(userId: UserId): F[List[Card]] =
-    Logger[F].info(s"List cards") *> transact {
+    Logger[F].info("List cards") *> transact {
       repository.listCards(userId)
     }
 
   def listWallets(companyId: CompanyId): F[List[Wallet]] =
-    Logger[F].info(s"List wallets") *> transact {
+    Logger[F].info("List wallets") *> transact {
       repository.listWallets(companyId)
     }
 
@@ -70,16 +70,16 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
         .map(_ => Wallet(WalletId(id), command.balance.value, command.currency, companyId, command.isMaster))
     }
 
-  def createCard(cardId: CardId, number: String Refined Card.Number, expirationDate: LocalDate, ccv: String Refined Card.Ccv, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] =
-    Logger[F].info(s"Create card $cardId") *> transact {
+  def createCard(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] =
+    Logger[F].info(show"Create card $cardId") *> transact {
       repository.queryWallet(companyId, command.walletId).flatMap {
         case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[Q]
-        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number.value, expirationDate, ccv.value)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Q]
+        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Q]
       }
     }
 
   def loadCard(userId: UserId, cardId: CardId, amount: BigDecimal Refined Positive): F[LoadCardCommandValidation] =
-    Logger[F].info(s"Load card $cardId") *> transact {
+    Logger[F].info(show"Load card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => LoadCardCommandValidation.cardUnknown(cardId).pure[Q]
         case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
@@ -99,7 +99,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
     }
 
   def blockCard(userId: UserId, cardId: CardId): F[BlockCardCommandValidation] =
-    Logger[F].info(s"Block card $cardId") *> transact {
+    Logger[F].info(show"Block card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => BlockCardCommandValidation.cardUnknown(cardId).pure[Q]
         case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
@@ -113,7 +113,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
     }
 
   def unblockCard(userId: UserId, cardId: CardId): F[UnblockCardCommandValidation] =
-    Logger[F].info(s"Unblock card $cardId") *> transact {
+    Logger[F].info(show"Unblock card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => UnblockCardCommandValidation.cardUnknown(cardId).pure[Q]
         case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => UnblockCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
@@ -123,7 +123,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
     }
 
   def transfer(companyId: CompanyId)(amount: BigDecimal Refined Positive, source: WalletId, target: WalletId): F[TransferCommandValidation] =
-    Logger[F].info(s"Transfer between $source and $target") *> transact {
+    Logger[F].info(show"Transfer between $source and $target") *> transact {
       repository.queryWallet(companyId, source).flatMap {
         case None => TransferCommandValidation.notWalletOwner(source).pure[Q]
         case Some((sourceId, sourceBalance, _)) if sourceBalance < amount.value => TransferCommandValidation.walletBalanceTooLow(sourceId, sourceBalance).pure[Q]
