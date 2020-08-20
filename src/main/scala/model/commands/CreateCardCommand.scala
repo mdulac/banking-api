@@ -1,6 +1,6 @@
 package model.commands
 
-import cats.effect.{IO, Sync}
+import cats.effect.Sync
 import io.circe.generic.auto._
 import model.Card
 import model.Wallet.WalletId

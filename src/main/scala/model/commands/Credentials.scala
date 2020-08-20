@@ -18,8 +18,7 @@ final case class Credentials(
                             )
 
 object Credentials {
-  private implicit val config: Configuration =
-    Configuration.default.copy(transformConstructorNames = _.toLowerCase)
+  implicit val config: Configuration = Configuration.default.copy(transformConstructorNames = _.toLowerCase)
 
   implicit val validationCodec: Codec[CredentialsValidation] = deriveEnumerationCodec[CredentialsValidation]
 }

@@ -6,7 +6,6 @@ import doobie.Meta
 import io.circe.Encoder
 import model.Company.CompanyId
 import model.User.UserId
-import model.Wallet.WalletId
 
 final case class User(userId: UserId, companyId: CompanyId)
 

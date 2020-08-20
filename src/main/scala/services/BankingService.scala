@@ -8,7 +8,6 @@ import cats.FlatMap
 import cats.effect.Sync
 import cats.implicits.{catsSyntaxApplicativeId, catsSyntaxOptionId}
 import cats.syntax.flatMap.toFlatMapOps
-import doobie.implicits.javatime._
 import eu.timepit.refined.api.Refined
 import eu.timepit.refined.numeric.Positive
 import io.chrisdavenport.log4cats.Logger
@@ -23,7 +22,7 @@ import model._
 import model.commands._
 import repository.BankingRepository
 
-class BankingService[F[_] : Sync : FlatMap : Logger, Query[_]](repository: BankingRepository[Query, F]) {
+class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRepository[Q, F]) {
 
   import repository.{Instance, Transform, transact}
 
@@ -74,27 +73,27 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Query[_]](repository: Banki
   def createCard(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] =
     Logger[F].info(s"Create card $cardId") *> transact {
       repository.queryWallet(companyId, command.walletId).flatMap {
-        case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[Query]
-        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Query]
+        case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[Q]
+        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Q]
       }
     }
 
   def loadCard(userId: UserId, cardId: String, amount: BigDecimal Refined Positive): F[LoadCardCommandValidation] =
     Logger[F].info(s"Load card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
-        case None => LoadCardCommandValidation.cardUnknown(cardId).pure[Query]
-        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[Query]
-        case Some((cardId, _, _, _, _, true)) => LoadCardCommandValidation.cardBlocked(cardId).pure[Query]
+        case None => LoadCardCommandValidation.cardUnknown(cardId).pure[Q]
+        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => LoadCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
+        case Some((cardId, _, _, _, _, true)) => LoadCardCommandValidation.cardBlocked(cardId).pure[Q]
         case Some((cardId, _, walletId, cardBalance, currency, false)) =>
           repository.queryWalletBalance(walletId).flatMap {
-            case walletBalance if walletBalance < amount.value => LoadCardCommandValidation.walletBalanceTooLow(walletId, walletBalance).pure[Query]
+            case walletBalance if walletBalance < amount.value => LoadCardCommandValidation.walletBalanceTooLow(walletId, walletBalance).pure[Q]
             case walletBalance =>
               val newWalletBalance = walletBalance - amount.value
               val newCardBalance = cardBalance + amount.value
               repository.setWalletBalance(walletId)(newWalletBalance) *>
                 repository.setCardBalance(cardId)(newCardBalance) *>
                 repository.setTransfer(TransferId(UUID.randomUUID()), LocalDateTime.now(), amount.value, currency, currency, Option.empty, WalletEntity(walletId), CardEntity(cardId)) *>
-                LoadCardCommandValidation.cardCredited(cardId, newCardBalance).pure[Query]
+                LoadCardCommandValidation.cardCredited(cardId, newCardBalance).pure[Q]
           }
       }
     }
@@ -102,42 +101,42 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Query[_]](repository: Banki
   def blockCard(userId: UserId, cardId: String): F[BlockCardCommandValidation] =
     Logger[F].info(s"Block card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
-        case None => BlockCardCommandValidation.cardUnknown(cardId).pure[Query]
-        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[Query]
-        case Some((cardId, _, _, _, _, true)) => BlockCardCommandValidation.cardAlreadyBlocked(cardId).pure[Query]
+        case None => BlockCardCommandValidation.cardUnknown(cardId).pure[Q]
+        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => BlockCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
+        case Some((cardId, _, _, _, _, true)) => BlockCardCommandValidation.cardAlreadyBlocked(cardId).pure[Q]
         case Some((cardId, _, walletId, cardBalance, currency, false)) => repository.blockCard(cardId) *>
           repository.setCardBalance(cardId)(0) *>
           repository.queryWalletBalance(walletId).flatMap(walletBalance => repository.setWalletBalance(walletId)(walletBalance + cardBalance)) *>
           repository.setTransfer(TransferId(UUID.randomUUID()), LocalDateTime.now(), cardBalance, currency, currency, Option.empty, CardEntity(cardId), WalletEntity(walletId)) *>
-          BlockCardCommandValidation.cardBlocked(cardId).pure[Query]
+          BlockCardCommandValidation.cardBlocked(cardId).pure[Q]
       }
     }
 
   def unblockCard(userId: UserId, cardId: String): F[UnblockCardCommandValidation] =
     Logger[F].info(s"Unblock card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
-        case None => UnblockCardCommandValidation.cardUnknown(cardId).pure[Query]
-        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => UnblockCardCommandValidation.notCardOwner(userId, cardId).pure[Query]
-        case Some((cardId, _, _, _, _, false)) => UnblockCardCommandValidation.cardAlreadyUnblocked(cardId).pure[Query]
-        case Some((cardId, _, _, _, _, true)) => repository.unblockCard(cardId) *> UnblockCardCommandValidation.cardUnblocked(cardId).pure[Query]
+        case None => UnblockCardCommandValidation.cardUnknown(cardId).pure[Q]
+        case Some((cardId, ownerId, _, _, _, _)) if ownerId != userId => UnblockCardCommandValidation.notCardOwner(userId, cardId).pure[Q]
+        case Some((cardId, _, _, _, _, false)) => UnblockCardCommandValidation.cardAlreadyUnblocked(cardId).pure[Q]
+        case Some((cardId, _, _, _, _, true)) => repository.unblockCard(cardId) *> UnblockCardCommandValidation.cardUnblocked(cardId).pure[Q]
       }
     }
 
   def transfer(companyId: CompanyId)(amount: BigDecimal Refined Positive, source: WalletId, target: WalletId): F[TransferCommandValidation] =
     Logger[F].info(s"Transfer between $source and $target") *> transact {
       repository.queryWallet(companyId, source).flatMap {
-        case None => TransferCommandValidation.notWalletOwner(source).pure[Query]
-        case Some((sourceId, sourceBalance, _)) if sourceBalance < amount.value => TransferCommandValidation.walletBalanceTooLow(sourceId, sourceBalance).pure[Query]
+        case None => TransferCommandValidation.notWalletOwner(source).pure[Q]
+        case Some((sourceId, sourceBalance, _)) if sourceBalance < amount.value => TransferCommandValidation.walletBalanceTooLow(sourceId, sourceBalance).pure[Q]
         case Some((sourceId, sourceBalance, sourceCurrency)) =>
           repository.queryWallet(companyId, target).flatMap {
-            case None => TransferCommandValidation.walletUnknown(target).pure[Query]
+            case None => TransferCommandValidation.walletUnknown(target).pure[Q]
             case Some((targetId, targetBalance, targetCurrency)) if sourceCurrency == targetCurrency =>
               val transferId = TransferId(UUID.randomUUID())
               val timestamp = LocalDateTime.now()
               repository.setWalletBalance(sourceId)(sourceBalance - amount.value) *>
                 repository.setWalletBalance(targetId)(targetBalance + amount.value) *>
                 repository.setTransfer(transferId, timestamp, amount.value, sourceCurrency, targetCurrency, Option.empty, WalletEntity(sourceId), WalletEntity(targetId)) *>
-                TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount.value, sourceCurrency, targetCurrency, Option.empty, WalletEntity(sourceId), WalletEntity(targetId))).pure[Query]
+                TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount.value, sourceCurrency, targetCurrency, Option.empty, WalletEntity(sourceId), WalletEntity(targetId))).pure[Q]
             case Some((targetId, targetBalance, targetCurrency)) =>
               val transferId = TransferId(UUID.randomUUID())
               val timestamp = LocalDateTime.now()
@@ -153,7 +152,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Query[_]](repository: Banki
                     repository.setWalletBalance(masterWalletId)(masterWalletBalance + fee) *>
                       repository.setTransfer(TransferId(UUID.randomUUID()), timestamp, fee, targetCurrency, targetCurrency, Option.empty, WalletEntity(targetId), WalletEntity(masterWalletId))
                 } *>
-                TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount.value, sourceCurrency, targetCurrency, fee.some, WalletEntity(sourceId), WalletEntity(targetId))).pure[Query]
+                TransferCommandValidation.transfered(Transfer(transferId, timestamp, amount.value, sourceCurrency, targetCurrency, fee.some, WalletEntity(sourceId), WalletEntity(targetId))).pure[Q]
           }
       }
     }

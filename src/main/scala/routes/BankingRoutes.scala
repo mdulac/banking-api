@@ -12,11 +12,8 @@ import cats.{Applicative, FlatMap}
 import io.chrisdavenport.log4cats.Logger
 import io.circe.generic.auto._
 import model.AuthenticationStatus.{Authenticated, NotAllowed}
-import model.Card.CardId.{CardIdOps, encoder}
-import model.Company.CompanyId.encoder
+import model.Card.CardId.CardIdOps
 import model.Currency.currencyCodec
-import model.Transfer.TransferId.encoder
-import model.User.UserId.encoder
 import model.Wallet.WalletId.encoder
 import model.commands.CredentialsValidation.FieldMissing
 import model.commands._
@@ -30,7 +27,7 @@ import services.BankingService
 
 import scala.util.Random
 
-class BankingRoutes[F[_] : Sync : FlatMap : Logger, Query[_]](service: BankingService[F, Query]) extends Http4sDsl[F] {
+class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingService[F, Q]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 

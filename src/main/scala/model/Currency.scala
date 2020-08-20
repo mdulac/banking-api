@@ -19,8 +19,7 @@ object Currency {
     case EUR => "EUR"
   }
 
-  private implicit val config: Configuration =
-    Configuration.default.copy(transformConstructorNames = _.toUpperCase)
+  implicit val config: Configuration = Configuration.default.copy(transformConstructorNames = _.toUpperCase)
 
   implicit val currencyCodec: Codec[Currency] = deriveEnumerationCodec[Currency]
 
