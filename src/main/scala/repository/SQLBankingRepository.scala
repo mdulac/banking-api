@@ -15,6 +15,7 @@ import model.User.UserId
 import model.Wallet.WalletId
 import model.commands.Credentials
 import model.{Card, Company, Currency, User, Wallet, _}
+import doobie.refined.implicits._
 
 class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends BankingRepository[ConnectionIO, F] {
 

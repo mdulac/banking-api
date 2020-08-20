@@ -70,11 +70,11 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
         .map(_ => Wallet(WalletId(id), command.balance.value, command.currency, companyId, command.isMaster))
     }
 
-  def createCard(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] =
+  def createCard(cardId: CardId, number: String Refined Card.Number, expirationDate: LocalDate, ccv: String Refined Card.Ccv, userId: UserId, companyId: CompanyId)(command: CreateCardCommand): F[CreateCardCommandValidation] =
     Logger[F].info(s"Create card $cardId") *> transact {
       repository.queryWallet(companyId, command.walletId).flatMap {
         case None => CreateCardCommandValidation.notWalletOwner(command.walletId).pure[Q]
-        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number, expirationDate, ccv)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Q]
+        case Some((walletId, _, currency)) => repository.createCard(currency)(cardId, number.value, expirationDate, ccv.value)(userId)(command.walletId) *> CreateCardCommandValidation.cardCreated(Card(cardId, walletId, currency, 0, number, expirationDate, ccv, userId, isBlocked = false)).pure[Q]
       }
     }
 
