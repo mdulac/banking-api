@@ -24,7 +24,7 @@ sealed trait LoadCardCommandValidation
 
 object LoadCardCommandValidation {
 
-  final case class CardUnknown(cardId: String) extends LoadCardCommandValidation
+  final case class CardUnknown(cardId: CardId) extends LoadCardCommandValidation
 
   final case class CardBlocked(cardId: CardId) extends LoadCardCommandValidation
 
@@ -34,7 +34,7 @@ object LoadCardCommandValidation {
 
   final case class CardCredited(cardId: CardId, balance: BigDecimal) extends LoadCardCommandValidation
 
-  def cardUnknown(cardId: String): LoadCardCommandValidation = CardUnknown(cardId)
+  def cardUnknown(cardId: CardId): LoadCardCommandValidation = CardUnknown(cardId)
 
   def cardBlocked(cardId: CardId): LoadCardCommandValidation = CardBlocked(cardId)
 

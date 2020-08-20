@@ -77,7 +77,7 @@ class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends Banki
       .update
       .run
 
-  def queryCard(cardId: String) =
+  def queryCard(cardId: CardId) =
     sql"SELECT ID, USER_ID, WALLET_ID, BALANCE, CURRENCY, IS_BLOCKED FROM CARDS WHERE ID = $cardId"
       .query[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]
       .option

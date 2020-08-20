@@ -8,7 +8,7 @@ sealed trait UnblockCardCommandValidation
 
 object UnblockCardCommandValidation {
 
-  final case class CardUnknown(cardId: String) extends UnblockCardCommandValidation
+  final case class CardUnknown(cardId: CardId) extends UnblockCardCommandValidation
 
   final case class CardAlreadyUnblocked(cardId: CardId) extends UnblockCardCommandValidation
 
@@ -16,7 +16,7 @@ object UnblockCardCommandValidation {
 
   final case class CardUnblocked(cardId: CardId) extends UnblockCardCommandValidation
 
-  def cardUnknown(cardId: String): UnblockCardCommandValidation = CardUnknown(cardId)
+  def cardUnknown(cardId: CardId): UnblockCardCommandValidation = CardUnknown(cardId)
 
   def cardAlreadyUnblocked(cardId: CardId): UnblockCardCommandValidation = CardAlreadyUnblocked(cardId)
 

@@ -78,7 +78,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
       }
     }
 
-  def loadCard(userId: UserId, cardId: String, amount: BigDecimal Refined Positive): F[LoadCardCommandValidation] =
+  def loadCard(userId: UserId, cardId: CardId, amount: BigDecimal Refined Positive): F[LoadCardCommandValidation] =
     Logger[F].info(s"Load card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => LoadCardCommandValidation.cardUnknown(cardId).pure[Q]
@@ -98,7 +98,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
       }
     }
 
-  def blockCard(userId: UserId, cardId: String): F[BlockCardCommandValidation] =
+  def blockCard(userId: UserId, cardId: CardId): F[BlockCardCommandValidation] =
     Logger[F].info(s"Block card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => BlockCardCommandValidation.cardUnknown(cardId).pure[Q]
@@ -112,7 +112,7 @@ class BankingService[F[_] : Sync : FlatMap : Logger, Q[_]](repository: BankingRe
       }
     }
 
-  def unblockCard(userId: UserId, cardId: String): F[UnblockCardCommandValidation] =
+  def unblockCard(userId: UserId, cardId: CardId): F[UnblockCardCommandValidation] =
     Logger[F].info(s"Unblock card $cardId") *> transact {
       repository.queryCard(cardId).flatMap {
         case None => UnblockCardCommandValidation.cardUnknown(cardId).pure[Q]

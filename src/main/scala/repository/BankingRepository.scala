@@ -40,7 +40,7 @@ trait BankingRepository[Q[_], F[_]] {
 
   def createCard(currency: Currency)(cardId: CardId, number: String, expirationDate: LocalDate, ccv: String)(userId: UserId)(walletId: WalletId): Q[Int]
 
-  def queryCard(cardId: String): Q[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]]
+  def queryCard(cardId: CardId): Q[Option[(CardId, UserId, WalletId, BigDecimal, Currency, Boolean)]]
 
   def queryWalletBalance(walletId: WalletId): Q[BigDecimal]
 

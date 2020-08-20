@@ -27,6 +27,7 @@ import org.http4s.util.CaseInsensitiveString
 import org.http4s.{Credentials => _, _}
 import services.BankingService
 import io.circe.refined._
+import model.Card.CardId
 
 import scala.util.Random
 
@@ -79,10 +80,10 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
             }
       }
 
-    case request@POST -> Root / "cards" / cardId / "load" as credentials =>
+    case request@POST -> Root / "cards" / UUIDVar(cardId) / "load" as credentials =>
       request.req.as[LoadCardCommand].flatMap {
         command =>
-          service.loadCard(credentials.userId, cardId, command.amount)
+          service.loadCard(credentials.userId, CardId(cardId), command.amount)
             .flatMap {
               case LoadCardCommandValidation.CardUnknown(cardId) =>
                 Logger[F].info(s"Card $cardId unknown") *> NotFound(s"Card $cardId unknown")
@@ -97,8 +98,8 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
             }
       }
 
-    case POST -> Root / "cards" / cardId / "block" as credentials =>
-      service.blockCard(credentials.userId, cardId)
+    case POST -> Root / "cards" / UUIDVar(cardId) / "block" as credentials =>
+      service.blockCard(credentials.userId, CardId(cardId))
         .flatMap {
           case BlockCardCommandValidation.CardUnknown(cardId) =>
             Logger[F].info(s"Card $cardId unknown") *> NotFound(s"Card $cardId unknown")
@@ -110,8 +111,8 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
             Logger[F].info(s"Card $cardId is now blocked") *> Ok(s"Card $cardId is now blocked")
         }
 
-    case POST -> Root / "cards" / cardId / "unblock" as credentials =>
-      service.unblockCard(credentials.userId, cardId)
+    case POST -> Root / "cards" / UUIDVar(cardId) / "unblock" as credentials =>
+      service.unblockCard(credentials.userId, CardId(cardId))
         .flatMap {
           case UnblockCardCommandValidation.CardUnknown(cardId) =>
             Logger[F].info(s"Card $cardId unknown") *> NotFound(s"Card $cardId unknown")
