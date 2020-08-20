@@ -71,12 +71,11 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Query[_]](service: BankingSe
       service.listWallets(credentials.companyId).flatMap(wallets => Ok(wallets, `Content-Type`(MediaType.application.json)))
 
     case request@POST -> Root / "wallets" as credentials =>
-      Logger[F].info("Create wallet route") *>
-        request.req.as[CreateWalletCommand].flatMap {
-          command =>
-            service.createWallet(randomUUID())(credentials.companyId)(command)
-              .flatMap(wallet => Created(wallet, `Content-Type`(MediaType.application.json)))
-        }
+      request.req.as[CreateWalletCommand].flatMap {
+        command =>
+          service.createWallet(randomUUID())(credentials.companyId)(command)
+            .flatMap(wallet => Created(wallet, `Content-Type`(MediaType.application.json)))
+      }
 
     case request@POST -> Root / "cards" / cardId / "load" as credentials =>
       request.req.as[LoadCardCommand].flatMap {
