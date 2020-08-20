@@ -1,5 +1,11 @@
 # Banking-api
 
+## What is it ?
+
+Banking-api is a small Scala API to manage Wallets, Cards and Tranfers between them.
+It has been created only using pure functional programming (no side effect, except for the unit tests).
+It uses a lot of libraries : http4s, doobie, cats / cats-effects, circe, refined, scalacheck
+
 ## Prerequisite
 Install [Java 8](https://sdkman.io/)
 
