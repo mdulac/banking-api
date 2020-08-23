@@ -5,7 +5,6 @@ enablePlugins(JavaAppPackaging)
 enablePlugins(AshScriptPlugin)
 
 addCompilerPlugin("org.typelevel" %% "kind-projector" % KindProjector cross CrossVersion.full)
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % BetterMonadicFor)
 
 dockerBaseImage := "openjdk:8-jre-alpine"
 dockerExposedPorts ++= Seq(8080)

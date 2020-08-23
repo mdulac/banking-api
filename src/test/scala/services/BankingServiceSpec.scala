@@ -35,7 +35,7 @@ import repository.BankingRepository
 
 class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {
 
-  implicit def unsafeLogger[F[_] : Sync]: SelfAwareStructuredLogger[F] = Slf4jLogger.getLogger[F]
+  def unsafeLogger[F[_] : Sync]: SelfAwareStructuredLogger[F] = Slf4jLogger.getLogger[F]
 
   def newRepository(): BankingRepository[Id, SyncIO] = new BankingRepository[Id, SyncIO]() {
 
@@ -153,7 +153,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       val companyId = fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId
 
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       service.createWallet(walletId)(companyId)(CreateWalletCommand(balance, currency, isMaster)).unsafeRunSync() match {
         case Wallet(i, b, c, ci, m) =>
@@ -182,7 +182,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
     ) { case ((cardId, walletId, userId, companyId), number, ccv, expirationDate) =>
 
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       repository.createWallet(walletId)(fromString("84b75488-4c65-4cdf-be52-9a41e9c58c17").companyId)(1, EUR, isMaster = false)
 
@@ -209,7 +209,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       dateGen
     ) { case ((userId, walletId, cardId, companyId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       repository.createWallet(walletId.value)(companyId)(amount.value, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
@@ -237,7 +237,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       dateGen
     ) { case ((userId, walletId, cardId, companyId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       repository.createWallet(walletId.value)(companyId)(amount.value - 1, EUR, isMaster = false)
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
@@ -266,7 +266,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       dateGen
     ) { case ((user1Id, user2Id, walletId, card1Id, card2Id), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       repository.createCard(EUR)(card1Id, number, expirationDate, ccv)(user1Id)(walletId)
       repository.createCard(EUR)(card2Id, number, expirationDate, ccv)(user2Id)(walletId)
@@ -294,7 +294,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       dateGen
     ) { case ((unknownCardId, userId, walletId, cardId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
 
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)
 
@@ -318,7 +318,7 @@ class BankingServiceSpec extends AnyFlatSpec with Matchers with ScalaCheckDriven
       dateGen
     ) { case ((userId, walletId, cardId), amount, number, ccv, expirationDate) =>
       val repository = newRepository()
-      val service = new BankingService(repository)
+      val service = new BankingService[SyncIO, Id](repository, unsafeLogger)
       import service._
 
       repository.createCard(EUR)(cardId, number, expirationDate, ccv)(userId)(walletId)

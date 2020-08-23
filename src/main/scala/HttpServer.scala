@@ -3,10 +3,9 @@ import java.util.concurrent.Executors
 import cats.effect._
 import config.Config
 import db.Database
+import doobie.ConnectionIO
 import doobie.hikari.HikariTransactor
 import doobie.util.ExecutionContexts
-import io.chrisdavenport.log4cats.SelfAwareStructuredLogger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import repository.SQLBankingRepository
@@ -32,14 +31,15 @@ object HttpServer {
 
   private def create(resources: Resources)(implicit concurrentEffect: ConcurrentEffect[IO], timer: Timer[IO]): IO[ExitCode] = {
     for {
-      implicit0(logger: SelfAwareStructuredLogger[IO]) <- Slf4jLogger.create[IO]
       _ <- Database.initialize(resources.transactor)
-      repository = new SQLBankingRepository(resources.transactor)
-      service = new BankingService(repository)
+      repository <- SQLBankingRepository.build(resources.transactor)
+      service <- BankingService.build[IO, ConnectionIO](repository)
       ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-      exitCode <- BlazeServerBuilder[IO](ec)
-        .bindHttp(resources.config.server.port, resources.config.server.host)
-        .withHttpApp(new BankingRoutes(service).routes.orNotFound).serve.compile.lastOrError
+      exitCode <- BankingRoutes.build(service).flatMap { s =>
+        BlazeServerBuilder[IO](ec)
+          .bindHttp(resources.config.server.port, resources.config.server.host)
+          .withHttpApp(s.routes.orNotFound).serve.compile.lastOrError
+      }
     } yield exitCode
   }
 

@@ -3,11 +3,15 @@ package repository
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 
+import cats.Applicative.ops.toAllApplicativeOps
 import cats.effect.Sync
 import cats.{Monad, ~>}
 import doobie.implicits._
 import doobie.implicits.javatime._
+import doobie.refined.implicits._
 import doobie.{ConnectionIO, Transactor}
+import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import model.Card.CardId
 import model.Company.CompanyId
 import model.Transfer.{TransferEntity, TransferId}
@@ -15,12 +19,17 @@ import model.User.UserId
 import model.Wallet.WalletId
 import model.commands.Credentials
 import model.{Card, Company, Currency, User, Wallet, _}
-import doobie.refined.implicits._
 
-class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F]) extends BankingRepository[ConnectionIO, F] {
+object SQLBankingRepository {
+  def build[F[_] : Sync](transactor: Transactor[F]) =
+    Slf4jLogger.create[F].map(l => new SQLBankingRepository[F](transactor, l))
+}
+
+class SQLBankingRepository[F[_] : Sync](transactor: Transactor[F], logger: Logger[F]) extends BankingRepository[ConnectionIO, F] {
 
   override implicit val Transform: ConnectionIO ~> F = new (ConnectionIO ~> F) {
-    override def apply[A](fa: ConnectionIO[A]): F[A] = transactor.trans.apply(fa)
+    override def apply[A](fa: ConnectionIO[A]): F[A] =
+      logger.debug("Transform ConnectionIO to F") *> transactor.trans.apply(fa)
   }
 
   implicit val Instance: Monad[ConnectionIO] = implicitly

@@ -3,13 +3,14 @@ package routes
 import java.time.LocalDate.now
 import java.util.UUID.randomUUID
 
+import cats.Applicative
 import cats.data.OptionT.liftF
 import cats.data.{Kleisli, ValidatedNel}
 import cats.effect.Sync
 import cats.implicits.{catsKernelStdMonoidForString, catsStdInstancesForOption, catsSyntaxEitherId, catsSyntaxTuple2Semigroupal, catsSyntaxValidatedId, _}
 import cats.syntax.flatMap.toFlatMapOps
-import cats.{Applicative, FlatMap}
 import io.chrisdavenport.log4cats.Logger
+import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 import io.circe.generic.auto._
 import model.AuthenticationStatus.{Authenticated, NotAllowed}
 import model.Card.CardId.CardIdOps
@@ -27,7 +28,12 @@ import services.BankingService
 
 import scala.util.Random
 
-class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingService[F, Q]) extends Http4sDsl[F] {
+object BankingRoutes {
+  def build[F[_] : Sync, Q[_]](service: BankingService[F, Q]) =
+    Slf4jLogger.create[F].map(l => new BankingRoutes[F, Q](service, l))
+}
+
+class BankingRoutes[F[_] : Sync, Q[_]](service: BankingService[F, Q], logger: Logger[F]) extends Http4sDsl[F] {
 
   private def randomCcv = LazyList.iterate(Random.nextInt(10))(_ => Random.nextInt(10)).take(3).mkString("")
 
@@ -45,9 +51,9 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
       errors => Sync[F].point(errors.map(_.message).reduce.asLeft[Credentials]),
       c => service.authenticate(c).flatMap {
         case NotAllowed(userId, companyId) =>
-          Logger[F].info(show"$userId is not part of $companyId") *> Sync[F].point(show"$userId is not part of $companyId".asLeft[Credentials])
+          logger.info(show"$userId is not part of $companyId") *> Sync[F].point(show"$userId is not part of $companyId".asLeft[Credentials])
         case Authenticated(userId, _) =>
-          Logger[F].info(show"User $userId authenticated") *> Sync[F].point(c.asRight[String])
+          logger.info(show"User $userId authenticated") *> Sync[F].point(c.asRight[String])
       }
     )
   }
@@ -72,7 +78,7 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
         command =>
           service.createWallet(randomUUID())(credentials.companyId)(command)
             .flatMap { wallet =>
-              Logger[F].info(show"Wallet created") *> Created(wallet, `Content-Type`(MediaType.application.json))
+              logger.info(show"Wallet created") *> Created(wallet, `Content-Type`(MediaType.application.json))
             }
       }
 
@@ -82,15 +88,15 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
           service.loadCard(credentials.userId, id.cardId, command.amount)
             .flatMap {
               case LoadCardCommandValidation.CardUnknown(cardId) =>
-                Logger[F].info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
+                logger.info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
               case LoadCardCommandValidation.NotCardOwner(userId, cardId) =>
-                Logger[F].info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
+                logger.info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
               case LoadCardCommandValidation.CardBlocked(cardId) =>
-                Logger[F].info(show"Card $cardId is blocked") *> BadRequest(show"Card $cardId is blocked")
+                logger.info(show"Card $cardId is blocked") *> BadRequest(show"Card $cardId is blocked")
               case LoadCardCommandValidation.WalletBalanceTooLow(walletId, balance) =>
-                Logger[F].info(show"Wallet $walletId has a too low balance : $balance") *> BadRequest(show"Wallet $walletId has a too low balance : $balance")
+                logger.info(show"Wallet $walletId has a too low balance : $balance") *> BadRequest(show"Wallet $walletId has a too low balance : $balance")
               case LoadCardCommandValidation.CardCredited(cardId, balance) =>
-                Logger[F].info(show"Card $cardId is now $balance") *> Ok(show"Card $cardId is now $balance")
+                logger.info(show"Card $cardId is now $balance") *> Ok(show"Card $cardId is now $balance")
             }
       }
 
@@ -98,26 +104,26 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
       service.blockCard(credentials.userId, id.cardId)
         .flatMap {
           case BlockCardCommandValidation.CardUnknown(cardId) =>
-            Logger[F].info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
+            logger.info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
           case BlockCardCommandValidation.NotCardOwner(userId, cardId) =>
-            Logger[F].info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
+            logger.info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
           case BlockCardCommandValidation.CardAlreadyBlocked(cardId) =>
-            Logger[F].info(show"Card $cardId is already blocked") *> BadRequest(show"Card $cardId is already blocked")
+            logger.info(show"Card $cardId is already blocked") *> BadRequest(show"Card $cardId is already blocked")
           case BlockCardCommandValidation.CardBlocked(cardId) =>
-            Logger[F].info(show"Card $cardId is now blocked") *> Ok(show"Card $cardId is now blocked")
+            logger.info(show"Card $cardId is now blocked") *> Ok(show"Card $cardId is now blocked")
         }
 
     case POST -> Root / "cards" / UUIDVar(id) / "unblock" as credentials =>
       service.unblockCard(credentials.userId, id.cardId)
         .flatMap {
           case UnblockCardCommandValidation.CardUnknown(cardId) =>
-            Logger[F].info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
+            logger.info(show"Card $cardId unknown") *> NotFound(show"Card $cardId unknown")
           case UnblockCardCommandValidation.NotCardOwner(userId, cardId) =>
-            Logger[F].info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
+            logger.info(show"$userId is not card $cardId owner") *> Forbidden(show"$userId is not card $cardId owner")
           case UnblockCardCommandValidation.CardAlreadyUnblocked(cardId) =>
-            Logger[F].info(show"Card $cardId is already unblocked") *> BadRequest(show"Card $cardId is already unblocked")
+            logger.info(show"Card $cardId is already unblocked") *> BadRequest(show"Card $cardId is already unblocked")
           case UnblockCardCommandValidation.CardUnblocked(cardId) =>
-            Logger[F].info(show"Card $cardId is now unblocked") *> Ok(show"Card $cardId is now unblocked")
+            logger.info(show"Card $cardId is now unblocked") *> Ok(show"Card $cardId is now unblocked")
         }
 
     case request@POST -> Root / "cards" as credentials =>
@@ -126,9 +132,9 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
           service.createCard(randomUUID().cardId, randomNumber, now().plusMonths(1), randomCcv, credentials.userId, credentials.companyId)(command)
             .flatMap {
               case CreateCardCommandValidation.NotWalletOwner(walletId) =>
-                Logger[F].info(show"${credentials.userId} is not wallet $walletId owner") *> Forbidden(show"${credentials.userId} is not wallet $walletId owner")
+                logger.info(show"${credentials.userId} is not wallet $walletId owner") *> Forbidden(show"${credentials.userId} is not wallet $walletId owner")
               case CreateCardCommandValidation.CardCreated(card) =>
-                Logger[F].info(show"Card created") *> Created(card, `Content-Type`(MediaType.application.json))
+                logger.info(show"Card created") *> Created(card, `Content-Type`(MediaType.application.json))
             }
       }
 
@@ -138,13 +144,13 @@ class BankingRoutes[F[_] : Sync : FlatMap : Logger, Q[_]](service: BankingServic
           service.transfer(credentials.companyId)(command.amount, command.source, command.target)
             .flatMap {
               case TransferCommandValidation.WalletUnknown(walletId) =>
-                Logger[F].info(show"Wallet $walletId unknown") *> NotFound(show"Wallet $walletId unknown")
+                logger.info(show"Wallet $walletId unknown") *> NotFound(show"Wallet $walletId unknown")
               case TransferCommandValidation.NotWalletOwner(walletId) =>
-                Logger[F].info(show"${credentials.userId} is not wallet $walletId owner") *> Forbidden(show"${credentials.userId} is not wallet $walletId owner")
+                logger.info(show"${credentials.userId} is not wallet $walletId owner") *> Forbidden(show"${credentials.userId} is not wallet $walletId owner")
               case TransferCommandValidation.WalletBalanceTooLow(walletId, balance) =>
-                Logger[F].info(show"Wallet $walletId has a too low balance : $balance") *> BadRequest(show"Wallet $walletId has a too low balance : $balance")
+                logger.info(show"Wallet $walletId has a too low balance : $balance") *> BadRequest(show"Wallet $walletId has a too low balance : $balance")
               case TransferCommandValidation.Transfered(transfer) =>
-                Logger[F].info(show"Transfer processed") *> Ok(transfer, `Content-Type`(MediaType.application.json))
+                logger.info(show"Transfer processed") *> Ok(transfer, `Content-Type`(MediaType.application.json))
             }
       }
   }
